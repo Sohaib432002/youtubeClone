@@ -1,38 +1,101 @@
-.App {
-  text-align: center;
+html,
+body {
+    background-color: #0F0F0F;
+    font-family: 'font-family: "Inika", serif;';
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+body {
+    box-sizing: border-box;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.magnifying {
+    display: none;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+::-webkit-scrollbar-track {
+    background-color: aqua;
 }
 
-.App-link {
-  color: #61dafb;
+div[sohaib]::-webkit-slider-runnable-track {
+    background: #ccc;
+    /* Light gray track */
+    border-radius: 4px;
+    height: 8px;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+
+
+.VideoPlayer {
+    display: grid;
+    grid-template-columns: 1fr auto;
 }
+
+.comments-section-bottom {
+    display: none;
+}
+
+@media (max-width:1170px) {
+    .VideoPlayer {
+        grid-template-columns: 1fr;
+        padding: 20px;
+    }
+
+    .comments-section {
+        display: none;
+    }
+
+    .comments-section-bottom {
+        display: block;
+    }
+
+    .player {
+        margin: 0;
+        border-radius: 0;
+    }
+
+    .title,
+    .VideoCreatorDetails {
+        margin-inline: 10px;
+        flex-wrap: wrap;
+    }
+
+
+}
+
+@media (max-width:785px) {
+    .nav-input {
+        margin: 0px;
+        margin-left: 120px;
+    }
+
+    .magnifying {
+        display: none;
+    }
+}
+
+@media (max-width:680px) {
+    .nav-input {
+        margin: 0px;
+        display: none;
+    }
+
+    .magnifying {
+        display: block;
+    }
+
+    .navbar {
+        margin: 0px;
+    }
+
+    .logo-img {
+        max-width: 50px;
+    }
+
+    .nav-btn button {
+        padding: 5px;
+        font-size: 10px;
+    }
+
+}
+
+@media screen {}
