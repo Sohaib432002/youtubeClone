@@ -2,6 +2,7 @@ html,
 body {
     background-color: #0F0F0F;
     font-family: 'font-family: "Inika", serif;';
+    position: relative;
 }
 
 body {
@@ -33,11 +34,32 @@ div[sohaib]::-webkit-slider-runnable-track {
 .comments-section-bottom {
     display: none;
 }
+.btn-subscribe-mobile{
+    display: none;
+}
+.optionsSelection li{
+    margin-inline:10px ;
+}
+.optionsSelection li a{
+    margin: 0px;
+    padding: 0px;
+}
+.optionsSelection li a:hover{
+    cursor: pointer;
+    border-bottom-width: 1px;
+
+}
+.btn-subscribe-pc{
+        display: flex;
+    }
 
 @media (max-width:1170px) {
     .VideoPlayer {
         grid-template-columns: 1fr;
         padding: 20px;
+    }
+    .banner-img{
+height: 150px;
     }
 
     .comments-section {
@@ -46,6 +68,9 @@ div[sohaib]::-webkit-slider-runnable-track {
 
     .comments-section-bottom {
         display: block;
+    }
+    .channelDetail{
+        max-width:900px ;
     }
 
     .player {
@@ -67,16 +92,47 @@ div[sohaib]::-webkit-slider-runnable-track {
         margin: 0px;
         margin-left: 120px;
     }
+    .title{
+        font-size: 25px;
+    }
+    .channelIntro{
+        justify-content: center;
+
+        display: flex;
+    }
+    .banner-img{
+height: 100px;
+    }
+    .btn-subscribe-pc{
+        display: none;
+    }
+    .btn-subscribe-mobile{
+        display: flow-root;
+        width: 100%;
+        text-align: center;
+    }
+    .channelDetail{
+        max-width:700px ;
+        margin-left: 0;
+        margin-inline:10px ;
+         padding:0 ;
+        padding-inline:60px ;
+    }
 
     .magnifying {
         display: none;
     }
+
 }
 
 @media (max-width:680px) {
     .nav-input {
         margin: 0px;
         display: none;
+    }
+    .channelDetail{
+        padding:0 ;
+        padding-inline:60px ;
     }
 
     .magnifying {
@@ -98,4 +154,19 @@ div[sohaib]::-webkit-slider-runnable-track {
 
 }
 
-@media screen {}
+@media (max-width:500px) {
+.title{
+    font-size: 18px;
+}
+.channelintroDetails{
+flex-wrap: wrap;
+justify-content: center;
+
+}
+.channelintroDetailsImg{
+margin-block:23px ;
+}
+.banner-img{
+    height: 60px;
+}
+}

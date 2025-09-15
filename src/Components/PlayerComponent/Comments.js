@@ -19,10 +19,11 @@ const Comments = ({ fetchData, commentData }) => {
     }
     return num.toString();
   }
+
   return (
     <>
-      {commentData.length === 0 ? (
-        <CommentSkel />
+      {commentData.length === 0 || commentData.length === undefined ? (
+        <CommentSkel commentData={commentData} />
       ) : (
         <>
           <div className="max-w-[1227px] player text-[20px] text-[#FFFFFF]   aspect-video   rounded-[10px] ml-20 ">

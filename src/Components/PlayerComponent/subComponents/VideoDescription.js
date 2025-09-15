@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router";
 
 const VideoDescription = ({ fetchData }) => {
+  console.log("VideoDesc:", fetchData);
   const [showMore, setshowMore] = useState(false);
   function DateConverter(currentDate) {
     const date = new Date(currentDate);
