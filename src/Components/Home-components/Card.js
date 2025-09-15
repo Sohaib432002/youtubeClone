@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import { useContext, useState } from "react";
 import { Link } from "react-router-dom";
+import { CallContext } from "../../Hooks/CallingCotext";
 const listIcons = ["fa-indent", "fa-arrow-down", "fa-share"];
 const listIconsName = ["Add to queue", "Download", "Share"];
 
@@ -52,6 +53,9 @@ const Card = ({ item }) => {
     }
     return `${Month},${date.getFullYear()}`;
   }
+  console.log(CallContext);
+  const {setdirectSearch } = useContext(CallContext)
+  setdirectSearch(false)
   return (
     <Link
       key={item.id.videoId}

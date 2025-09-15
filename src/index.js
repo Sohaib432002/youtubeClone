@@ -1,18 +1,23 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
-import "./index.css";
-import App from "./App";
 import { createBrowserRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
-import MenuOptions from "./Components/MenuOptions";
+import App from "./App";
+import ChannelDetails from "./Components/ChannelDetails";
+import AllVidoesHome from './Components/ChannelDetails-Components/AllVidoesHome';
+import Playlist from './Components/ChannelDetails-Components/Playlist';
+import Post from './Components/ChannelDetails-Components/Post';
+import Video from './Components/ChannelDetails-Components/Videos';
+import History from "./Components/Menu-Components/History";
 import Home from "./Components/Menu-Components/Home";
 import Self from "./Components/Menu-Components/Self";
 import Shorts from "./Components/Menu-Components/Shorts";
 import Subscriptions from "./Components/Menu-Components/Subsciptions";
-import History from "./Components/Menu-Components/History";
-import { ThemeProvider } from "./Hooks/ThemeContext";
-import VideoPlayer from "./Components/VideoPlayer";
+import MenuOptions from "./Components/MenuOptions";
 import Result from "./Components/Result";
+import VideoPlayer from "./Components/VideoPlayer";
+import { CallContextFun } from "./Hooks/CallingCotext";
+import { ThemeProvider } from "./Hooks/ThemeContext";
+import "./index.css";
 const router = createBrowserRouter([
   {
     path: "/",
@@ -23,7 +28,7 @@ const router = createBrowserRouter([
         element: <MenuOptions />,
         children: [
           {
-            path: "/home",
+            path: "/",
             element: <Home />,
           },
           {
@@ -46,10 +51,32 @@ const router = createBrowserRouter([
             path: "/result/:text",
             element: <Result />,
           },
+          {
+            path: "/CD/",
+            element: <ChannelDetails />,
+            children: [
+              {
+                path: '/CD/',
+                element:<AllVidoesHome/>,
+              },
+              {
+                path: '/CD/videolist',
+                element:<Video/>,
+              },
+              {
+                path: '/CD/Playlist',
+                element:<Playlist/>,
+              },
+              {
+                path: '/CD/Posts',
+                element:<Post/>,
+              }
+            ]
+          },
         ],
       },
       {
-        path: "/home/Video/:id",
+        path: "/Video/:id",
         element: <VideoPlayer />,
       },
       {
@@ -63,7 +90,9 @@ const router = createBrowserRouter([
 const root = document.getElementById("root");
 
 ReactDOM.createRoot(root).render(
+  <CallContextFun>
   <ThemeProvider>
     <RouterProvider router={router} />
-  </ThemeProvider>
+    </ThemeProvider>
+    </CallContextFun>
 );

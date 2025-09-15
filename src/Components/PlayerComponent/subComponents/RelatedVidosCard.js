@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 
 const listbtnIcons = [
@@ -64,15 +64,21 @@ function DateConverter(currentDate) {
   }
   return `${Month},${date.getFullYear()}`;
 }
-const RelatedVidosCard = ({ setupdate, windowResize, item }) => {
+const RelatedVidosCard = ({ setupdate, windowResize,RelatedVidoesChannelsData, item }) => {
   const [options, setOptions] = useState(false);
   const [hoverVideo, sethoverVideo] = useState(false);
+ console.log(RelatedVidoesChannelsData);
 
   return (
     <>
       <Link
-        onClick={() => setupdate(Math.random())}
-        to={`/home/Video/${item.id.videoId}`}
+      onClick={() => {
+  setupdate(Math.random());
+  window.scrollTo(0, 0);
+}
+        }
+
+        to={`/Video/${item.id.videoId}`}
       >
         <div
           key={`${item.id.videoId}`}
@@ -117,6 +123,7 @@ const RelatedVidosCard = ({ setupdate, windowResize, item }) => {
                 </p>
               )}
               <Link to={`/${item.snippet.channelId}`}>
+                {/* <img src={`${}`} alt="" /> */}
                 <p>{item.snippet.channelTitle}</p>
               </Link>
               <p>

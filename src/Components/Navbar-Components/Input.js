@@ -44,12 +44,16 @@ const Input = ({ searchIcon, setSearchIcon }) => {
           ></i>
         </div>
       </div>
-      <div className="px-4 hover:cursor-pointer hover:bg-[#3D3D3D] py-2 bg-[#222222]">
-        <Link to={`/result/${RemvoeText}`} onClick={() => setRemoveText("")}>
+      <Link
+        to={`/result/${RemvoeText}`}
+        // onSubmit={}
+        onClick={() => setRemoveText("")}
+      >
+        <div className="px-4 hover:cursor-pointer hover:bg-[#3D3D3D] py-2 bg-[#222222]">
           {" "}
           <i className="fa-solid fa-magnifying-glass  text-[#EFEFEF]"></i>
-        </Link>
-      </div>
+        </div>
+      </Link>
     </div>
   );
 };

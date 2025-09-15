@@ -8,7 +8,6 @@ function App() {
   return (
     <>
       <Navbar searchIcon={searchIcon} setSearchIcon={setSearchIcon} />
-
       <Outlet />
     </>
   );
