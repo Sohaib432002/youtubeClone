@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
-import CrouselCard from './CrouselCard' // your card component
+import PostCard from './PostCard'
 
 const PostCrousel = () => {
   const scrollRef = useRef(null)
@@ -23,7 +23,6 @@ const PostCrousel = () => {
 
     el.scrollBy({ left: distance, behavior: 'smooth' })
 
-    // Delay to allow scroll animation to finish
     setTimeout(updateButtonVisibility, 300)
   }
 
@@ -42,6 +41,7 @@ const PostCrousel = () => {
 
     check()
     window.addEventListener('resize', check)
+
     el.addEventListener('scroll', updateButtonVisibility)
 
     return () => {
@@ -51,40 +51,35 @@ const PostCrousel = () => {
   }, [])
 
   return (
-    <div className="relative w-full">
-      {/* Left Scroll Button */}
+    <div className="relative">
       {showLeftbtn && (
         <div
-          onClick={() => scrollX(-300)}
-          className="z-20 bg-gray-500/75 absolute -left-4 p-3 rounded-full cursor-pointer top-[100px] hover:bg-gray-600"
+          onClick={() => scrollX(-200)}
+          className="left-button-crousel z-20 bg-gray-500/75 absolute -left-6 bg-gray-700 p-3 rounded-full cursor-pointer top-[100px]"
         >
-          <i className="fa-solid fa-arrow-left text-white"></i>
+          <i className="fa-solid fa-arrow-left"></i>
         </div>
       )}
 
-      {/* Scrollable Container */}
       <div
         ref={scrollRef}
-        className="flex overflow-x-auto scroll-smooth scrollbar-hide gap-4 px-8"
+        className="flex overflow-x-auto scroll-smooth scrollbar-hide gap-4"
       >
-        {/* Replace these with dynamic map if needed */}
-        <CrouselCard />
-        <CrouselCard />
-        <CrouselCard />
-        <CrouselCard />
-        <CrouselCard />
-        <CrouselCard />
-        <CrouselCard />
-        <CrouselCard />
+        <PostCard />
+        <PostCard />
+        <PostCard />
+        <PostCard />
+        <PostCard />
+        <PostCard />
+        <PostCard />
       </div>
 
-      {/* Right Scroll Button */}
       {showRightbtn && (
         <div
-          onClick={() => scrollX(300)}
-          className="z-20 bg-gray-500/75 absolute -right-4 p-3 rounded-full cursor-pointer top-[100px] hover:bg-gray-600"
+          onClick={() => scrollX(200)}
+          className="right-button-crousel z-10 bg-gray-500/75 absolute -right-2 bg-gray-700 p-3 rounded-full cursor-pointer top-[100px]"
         >
-          <i className="fa-solid fa-arrow-right text-white"></i>
+          <i className="fa-solid fa-arrow-right"></i>
         </div>
       )}
     </div>
