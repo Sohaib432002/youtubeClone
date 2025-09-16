@@ -5,7 +5,6 @@ import App from './App'
 import ChannelDetails from './Components/ChannelDetails'
 import AllVidoesHome from './Components/ChannelDetails-Components/AllVidoesHome'
 import Playlist from './Components/ChannelDetails-Components/Playlist'
-import Post from './Components/ChannelDetails-Components/Post'
 import Video from './Components/ChannelDetails-Components/Videos'
 import History from './Components/Menu-Components/History'
 import Home from './Components/Menu-Components/Home'
@@ -18,6 +17,7 @@ import VideoPlayer from './Components/VideoPlayer'
 import { CallContextFun } from './Hooks/CallingCotext'
 import { ThemeProvider } from './Hooks/ThemeContext'
 import './index.css'
+import PostDetails from './Components/ChannelDetails-Components/PostDetails'
 const router = createBrowserRouter([
   {
     path: '/',
@@ -69,7 +69,7 @@ const router = createBrowserRouter([
               },
               {
                 path: '/CD/Posts',
-                element: <Post />,
+                element: <PostDetails />,
               },
             ],
           },
