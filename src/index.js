@@ -18,6 +18,7 @@ import { CallContextFun } from './Hooks/CallingCotext'
 import { ThemeProvider } from './Hooks/ThemeContext'
 import './index.css'
 import PostDetails from './Components/ChannelDetails-Components/PostDetails'
+import PostComments from './Components/ChannelDetails-Components/PostComments'
 const router = createBrowserRouter([
   {
     path: '/',
@@ -70,6 +71,10 @@ const router = createBrowserRouter([
               {
                 path: '/CD/Posts',
                 element: <PostDetails />,
+              },
+              {
+                path: '/CD/Posts/:post',
+                element: <PostComments />,
               },
             ],
           },
