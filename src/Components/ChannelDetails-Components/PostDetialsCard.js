@@ -1,39 +1,43 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 
-const PostDetialsCard = () => {
-  return (
-    <Link to="/post/1">
-      <div className="m-10 grid [grid-template-columns:auto_1fr_auto] cursor-pointer border bg-gray-600 rounded-lg">
-        {/* Left Avatar */}
-        <img
-          src="https://wallpapers.com/images/hd/cool-profile-picture-paper-bag-head-4co57dtwk64fb7lv.jpg"
-          className="rounded-full m-2"
-          alt="profile"
-          width={30}
-        />
+const listbtnIcons = ['flag']
+const listbtnNames = ['Report']
 
-        {/* Middle Content */}
-        <div className="flex max-w-[500px] flex-col p-1 justify-start text-[12px]">
-          <span className="cursor-pointer">Junaid Akram • 10 months ago</span>
+const PostDetialsCard = () => {
+  const [options, setOptions] = useState(false)
+
+  return (
+    <div className="flex items-center justify-center my-7">
+      <div className="m-1 flex items-start max-w-[800px] justify-between cursor-pointer border bg-gray-600 rounded-lg">
+        <div className="flex justify-center p-2 items-start">
+          <Link to="/profile">
+            <img
+              src="https://wallpapers.com/images/hd/cool-profile-picture-paper-bag-head-4co57dtwk64fb7lv.jpg"
+              className="rounded-full m-2"
+              alt="profile"
+              width={70}
+            />
+          </Link>
+        </div>
+
+        <div className="flex p-3  flex-col  justify-start font-sans text-white text-[16px]">
+          <Link to="/user/junaid">
+            <span className="cursor-pointer">Junaid Akram • 10 months ago</span>
+          </Link>
 
           <p className="my-1">
-            We recently hosted an impactful event on countering human smuggling and trafficking,
-            shedding light on the harsh realities faced by those who undertake this terrifying
-            journey. Our discussion explored the severe risks and exploitation involved, as well as
-            ways to address this urgent issue. A special thanks to Good Will Karavan, along with
-            Iqbal Ahmed ....
+            We recently hosted an impactful event on countering human smuggling and trafficking...
           </p>
 
           <img
             src="https://media.istockphoto.com/id/1285124274/photo/middle-age-man-portrait.jpg?s=612x612&w=0&k=20&c=D14m64UChVZyRhAr6MJW3guo7MKQbKvgNVdKmsgQ_1g="
-            className="mx-3 rounded-lg"
+            className="rounded-lg"
             width={1000}
             alt="post"
           />
 
-          {/* Actions */}
-          <div className="flex justify-start mt-2">
+          <div className="flex justify-start items-center mt-2">
             <span className="flex items-center">
               <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1 rounded-full">
                 <i className="fa-regular fa-thumbs-up mx-1"></i>
@@ -48,19 +52,48 @@ const PostDetialsCard = () => {
               <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1 rounded-full">
                 <i className="fa-solid fa-share mx-1"></i>
               </span>
-              <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1 rounded-full">
-                <i className="fa-regular fa-message mx-1"></i>
-              </span>
+              <Link to={'./1'}>
+                <span className="hover:bg-gray-500 cursor-pointer mx-1 p-1 rounded-full">
+                  <i className="fa-regular fa-message mx-1"></i>
+                  <span>23</span>
+                </span>
+              </Link>
             </span>
           </div>
         </div>
 
-        {/* Right Menu */}
-        <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1 rounded-full">
+        <span
+          onClick={(e) => {
+            e.stopPropagation()
+            setOptions(!options)
+          }}
+          className="hover:bg-gray-500 relative cursor-pointer m-2 p-2 rounded-full"
+        >
           <i className="fa-solid fa-ellipsis-vertical mx-1"></i>
+
+          {options && (
+            <div className="z-30 right-[20px] top-[20px] text-[16px] overflow-hidden w-[210px] bg-[#272727] rounded-lg absolute">
+              {listbtnNames.map((item, i) => {
+                return (
+                  <div key={i} className="flex flex-col">
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        alert(`${item}, we are working on it`)
+                      }}
+                      className="px-4 hover:bg-[#414140] flex items-center py-2"
+                    >
+                      <i className={`fa-solid mx-2 fa-${listbtnIcons[i]}`}></i>
+                      <p>{item}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </span>
       </div>
-    </Link>
+    </div>
   )
 }
 
