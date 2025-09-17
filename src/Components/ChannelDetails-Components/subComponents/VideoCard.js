@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router'
 
-const VideoCard = () => {
+const VideoCard = ({ item }) => {
   const [options, setOptions] = useState(false)
   const listbtnIcons = ['outdent', 'clock', 'list', 'arrow-down', 'share', 'flag']
   const listbtnNames = [
@@ -12,21 +12,19 @@ const VideoCard = () => {
     'Share',
     'Report',
   ]
+  console.log('ha', item)
   return (
     <>
-      <Link>
+      <Link to={`./${item.id}`}>
         <div className="px-1">
           <div className="w-[260px]  flex  flex-col">
             <div className="rounded-lg overflow-hidden">
-              <img src={'https://materializecss.com/images/sample-1.jpg'} alt="" />
+              <img src={item.snippet.thumbnails.high.url} alt="" />
             </div>
 
             <div className="cardText flex text-[white] text justify-between p-2">
               <div>
-                <p className="text-[16px]">
-                  Lorem ipsum dolor sit amet Lorem ipsum dolor sit amet, consectetur adipisicing
-                  elit. Harum, at.
-                </p>
+                <p className="text-[16px]">{item.snippet.localized.title}</p>
                 <span className="text-[14px] text-[#969696]">156K views • 2 days ago</span>
               </div>
               <div className="relative">

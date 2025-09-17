@@ -1,169 +1,136 @@
-import React, { useState } from "react";
-import { Link } from "react-router";
+import React, { useState } from 'react'
+import { Link } from 'react-router-dom'
 
-const Commenter = ({
-  commentContent,
-  setwriteComment,
-  setComment,
-  writeComment,
-  commentData,
-}) => {
-  const [Reply, setReply] = useState(false);
+const Commenter = ({ setwriteComment, setComment, writeComment, commentData }) => {
+  const [activeReplyId, setActiveReplyId] = useState(null)
+
+  // Convert ISO date → "Sep, 2024"
   function DateConverter(currentDate) {
-    const date = new Date(currentDate);
-    let Month;
-    switch (date.getMonth()) {
-      case 0:
-        Month = "Jan";
-        break;
-      case 1:
-        Month = "Feb";
-        break;
-      case 2:
-        Month = "Mar";
-        break;
-      case 3:
-        Month = "April";
-        break;
-      case 4:
-        Month = "May";
-        break;
-      case 5:
-        Month = "June";
-        break;
-      case 6:
-        Month = "July";
-        break;
-      case 7:
-        Month = "Aug";
-        break;
-      case 8:
-        Month = "Sep";
-        break;
-      case 9:
-        Month = "Oct";
-        break;
-      case 10:
-        Month = "Nov";
-        break;
-      case 11:
-        Month = "Dec";
-        break;
-
-      default:
-        Month = "";
-        break;
-    }
-    return `${Month},${date.getFullYear()}`;
+    const date = new Date(currentDate)
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ]
+    return `${months[date.getMonth()]}, ${date.getFullYear()}`
   }
+
   return (
     <>
-      {commentData.items.map((item) => {
+      {commentData?.items?.map((item) => {
+        const comment = item.snippet.topLevelComment.snippet
+        const commentId = item.id
+
         return (
-          <Link
-            to={`/${item.snippet.topLevelComment.snippet.authorChannelUrl}`}
-            id={`${item.snippet.topLevelComment.snippet.authorChannelId.value}`}
-          >
-            <div
-              key={`${item.snippet.topLevelComment.snippet.authorChannelUrl}`}
-              className="flex my-3 text-[15px] flex-1"
-            >
-              <div className="flex items-start">
+          <Link key={commentId} to={`/${comment.authorChannelUrl || ''}`} className="block">
+            <div className="flex my-3 text-[15px]">
+              {/* Author Image */}
+              <div className="flex items-start mr-3">
                 <img
-                  alt="pic"
+                  alt={comment.authorDisplayName}
                   width={50}
                   className="rounded-full"
-                  src={`${item.snippet.topLevelComment.snippet.authorProfileImageUrl}`}
+                  src={comment.authorProfileImageUrl}
                 />
               </div>
+
+              {/* Comment Body */}
               <div className="flex grow flex-col">
+                {/* Header */}
                 <div className="flex items-center">
-                  <b className="mx-3">
-                    {item.snippet.topLevelComment.snippet.authorDisplayName}{" "}
-                  </b>{" "}
-                  <span>
-                    {DateConverter(
-                      item.snippet.topLevelComment.snippet.publishedAt
-                    )}
-                  </span>
+                  <b className="mr-3">{comment.authorDisplayName}</b>
+                  <span className="text-gray-400">{DateConverter(comment.publishedAt)}</span>
                 </div>
-                <div className="commentContent">
-                  <p className="ml-[10px]">
-                    {item.snippet.topLevelComment.snippet.textDisplay}
-                  </p>
-                </div>
+
+                {/* Content */}
+                <p className="ml-[10px]">{comment.textDisplay}</p>
+
+                {/* Actions */}
                 <div className="flex flex-col mx-3 my-1">
                   <div className="flex items-center">
+                    {/* Like */}
                     <div title="like" className="flex items-center mx-2">
-                      <i className="fa-regular mx-1 cursor-pointer hover:bg-[#414140] fa-thumbs-up"></i>
-                      <span className="text-gray-700">
-                        {item.snippet.topLevelComment.snippet.likeCount}
-                      </span>
+                      <i className="fa-regular fa-thumbs-up mx-1 cursor-pointer hover:text-blue-400"></i>
+                      <span className="text-gray-500">{comment.likeCount}</span>
                     </div>
+
+                    {/* Dislike */}
                     <div title="dislike" className="flex items-center mx-2">
-                      <i className="fa-regular  cursor-pointer hover:bg-[#414140] fa-thumbs-down"></i>
+                      <i className="fa-regular fa-thumbs-down cursor-pointer hover:text-red-400"></i>
                     </div>
-                    <div>
-                      <button
-                        onClick={() => setReply(!Reply)}
-                        className="px-3 rounded-full hover:bg-[#414140] py-1"
-                      >
-                        Reply
-                      </button>
-                    </div>
+
+                    {/* Reply Button */}
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault() // prevent Link navigation
+                        setActiveReplyId(activeReplyId === commentId ? null : commentId)
+                      }}
+                      className="px-3 py-1 rounded-full hover:bg-[#414140]"
+                    >
+                      Reply
+                    </button>
                   </div>
-                  <div>
-                    {Reply && (
-                      <div className="flex flex-col">
-                        <div className="flex items-center">
-                          <div className=" my-3 flex items-center ">
-                            <img
-                              alt="pic"
-                              src="../../favicon.ico"
-                              width={30}
-                              className="rounded-full"
-                            />
-                          </div>
-                          <input
-                            type="text"
-                            onChange={(e) => setwriteComment(e.target.value)}
-                            className="w-[100%] px-3 py-1 bg-[transparent] outline-none border-b"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex justify-end my-2">
-                            <button
-                              onClick={() => {
-                                setwriteComment("");
-                                setComment(false);
-                                setReply(false);
-                              }}
-                              className="px-4 py-2 mx-1 rounded-full bold bg-[#272727]  hover:bg-[#414140]  "
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              className={`px-4 py-2 mx-1 ${
-                                writeComment.length >= 1
-                                  ? " bg-[#272727] cursor-pointer hover:bg-[#414140] "
-                                  : "  bg-gray-700 cursor-not-allowed text-[#6C6C6C] "
-                              } rounded-full bold     `}
-                            >
-                              Comment
-                            </button>
-                          </div>
-                        </div>
+
+                  {/* Reply Box */}
+                  {activeReplyId === commentId && (
+                    <div className="flex flex-col mt-2">
+                      <div className="flex items-center">
+                        <img
+                          alt="You"
+                          src="../../favicon.ico"
+                          width={30}
+                          className="rounded-full"
+                        />
+                        <input
+                          type="text"
+                          value={writeComment}
+                          onChange={(e) => setwriteComment(e.target.value)}
+                          className="w-full px-3 py-1 bg-transparent outline-none border-b ml-2"
+                          placeholder="Write a reply..."
+                        />
                       </div>
-                    )}
-                  </div>
+
+                      <div className="flex justify-end my-2">
+                        <button
+                          onClick={() => {
+                            setwriteComment('')
+                            setComment(false)
+                            setActiveReplyId(null)
+                          }}
+                          className="px-4 py-2 mx-1 rounded-full bg-[#272727] hover:bg-[#414140]"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          disabled={!writeComment.trim()}
+                          className={`px-4 py-2 mx-1 rounded-full ${
+                            writeComment.trim()
+                              ? 'bg-[#272727] hover:bg-[#414140] cursor-pointer'
+                              : 'bg-gray-700 text-[#6C6C6C] cursor-not-allowed'
+                          }`}
+                        >
+                          Reply
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </Link>
-        );
+        )
       })}
     </>
-  );
-};
+  )
+}
 
-export default Commenter;
+export default Commenter

@@ -1,34 +1,34 @@
-import React from "react";
-import Button from "../Navbar-Components/Button";
-import VideoReviewOptions from "./subComponents/VideoReviewOptions";
-import VideoDescription from "./subComponents/VideoDescription";
-import PlayerSkeleton from "./PlayerSkeleton";
-import { useParams } from "react-router";
+import React from 'react'
+import Button from '../Navbar-Components/Button'
+import VideoReviewOptions from './subComponents/VideoReviewOptions'
+import VideoDescription from './subComponents/VideoDescription'
+import PlayerSkeleton from './PlayerSkeleton'
+import { useParams } from 'react-router-dom'
+
 const Player = ({ fetchData, channelData }) => {
-  const params = useParams();
-  const { id } = params;
+  const { id } = useParams()
+
+  // If no video data, show skeleton loader
+  if (!fetchData) {
+    return <PlayerSkeleton />
+  }
+
   return (
     <>
-      {fetchData.length === 0 ? (
-        <PlayerSkeleton />
-      ) : (
-        <>
-          <div className="max-w-[1227px] player   aspect-video  overflow-hidden rounded-[10px] ml-20 ">
-            <iframe
-              className="w-[100%] h-[100%]"
-              src={`https://www.youtube.com/embed/${id}`}
-              title="YouTube video player"
-              allowFullScreen
-              allow="accelerometer;
-          autoplay; clipboard-write; encrypted-media; gyroscope;
-          picture-in-picture"
-            ></iframe>
-          </div>
-          <VideoReviewOptions fetchData={fetchData} channelData={channelData} />
-        </>
-      )}
-    </>
-  );
-};
+      <div className="max-w-[1227px] player aspect-video overflow-hidden rounded-[10px] mx-auto">
+        <iframe
+          className="w-full h-full"
+          src={`https://www.youtube.com/embed/${id}`}
+          title={fetchData?.snippet?.title || 'YouTube video player'}
+          allowFullScreen
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        ></iframe>
+      </div>
 
-export default Player;
+      {/* Review Options */}
+      <VideoReviewOptions fetchData={fetchData} channelData={channelData} />
+    </>
+  )
+}
+
+export default Player

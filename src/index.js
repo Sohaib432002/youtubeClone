@@ -76,6 +76,10 @@ const router = createBrowserRouter([
                 path: '/CD/Posts/:post',
                 element: <PostComments />,
               },
+              {
+                path: '/CD/videolist/:id',
+                element: <VideoPlayer />,
+              },
             ],
           },
         ],
