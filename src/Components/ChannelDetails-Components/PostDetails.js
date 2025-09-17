@@ -4,11 +4,6 @@ const PostDetails = () => {
   return (
     <>
       <PostDetialsCard />
-      <PostDetialsCard />
-      <PostDetialsCard />
-      <PostDetialsCard />
-      <PostDetialsCard />
-      <PostDetialsCard />
     </>
   )
 }

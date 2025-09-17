@@ -1,117 +1,86 @@
-import React, { useState } from "react";
-import { Link } from "react-router";
+import React, { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 const VideoDescription = ({ fetchData }) => {
-  console.log("VideoDesc:", fetchData);
-  const [showMore, setshowMore] = useState(false);
-  function DateConverter(currentDate) {
-    const date = new Date(currentDate);
-    let Month;
-    switch (date.getMonth()) {
-      case 0:
-        Month = "Jan";
-        break;
-      case 1:
-        Month = "Feb";
-        break;
-      case 2:
-        Month = "Mar";
-        break;
-      case 3:
-        Month = "April";
-        break;
-      case 4:
-        Month = "May";
-        break;
-      case 5:
-        Month = "June";
-        break;
-      case 6:
-        Month = "July";
-        break;
-      case 7:
-        Month = "Aug";
-        break;
-      case 8:
-        Month = "Sep";
-        break;
-      case 9:
-        Month = "Oct";
-        break;
-      case 10:
-        Month = "Nov";
-        break;
-      case 11:
-        Month = "Dec";
-        break;
+  const [showMore, setShowMore] = useState(false)
 
-      default:
-        Month = "";
-        break;
-    }
-    return `${Month},${date.getFullYear()}`;
+  if (!fetchData || !fetchData.items || fetchData.items.length === 0) {
+    return (
+      <div className="title text-[#DDDDDD] max-w-[1227px] h-[20vh] my-3 bg-[#272727] overflow-hidden p-2 rounded-xl ml-20"></div>
+    )
   }
-  function formatNumber(num) {
-    if (num >= 1_000_000_000) {
-      return (num / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B";
-    }
-    if (num >= 1_000_000) {
-      return (num / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-    }
-    if (num >= 1_000) {
-      return (num / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
-    }
-    return num.toString();
+
+  const video = fetchData.items[0]
+  const { statistics, snippet } = video
+
+  // Format numbers like 1.2K, 3.4M, etc.
+  const formatNumber = (num) => {
+    if (!num) return '0'
+    if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B'
+    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
+    if (num >= 1_000) return (num / 1_000).toFixed(1).replace(/\.0$/, '') + 'K'
+    return num.toString()
   }
+
+  // Convert date to "Sep, 2025"
+  const formatDate = (dateStr) => {
+    const date = new Date(dateStr)
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ]
+    return `${months[date.getMonth()]} ${date.getFullYear()}`
+  }
+
+  const views = formatNumber(statistics?.viewCount)
+  const publishedAt = formatDate(snippet?.publishedAt)
+  const description = snippet?.description || ''
+
   return (
-    <>
-      {fetchData.length === 0 ? (
-        <div className="title text-[#DDDDDD] max-w-[1227px] h-[20vh] my-3 bg-[#272727] overflow-hidden p-2 rounded-xl ml-20"></div>
-      ) : (
-        <>
-          <div className="title text-[#DDDDDD] max-w-[1227px] my-3 bg-[#272727] overflow-hidden p-2 rounded-xl ml-20">
-            <div className="flex ">
-              <b>
-                {formatNumber(fetchData.items[0].statistics.viewCount)} &nbsp;
-                Views &nbsp;
-                {DateConverter(fetchData.items[0].snippet.publishedAt)}
-              </b>{" "}
-              <span>
-                {" "}
-                <Link>&nbsp; {fetchData.items[0].snippet.title} </Link>
-              </span>{" "}
-            </div>
-            {showMore
-              ? ""
-              : fetchData.items[0].snippet.description.length >= 200
-              ? fetchData.items[0].snippet.description.slice(0, 400) + "...."
-              : fetchData.items[0].snippet.description}
-            <br />
-            <br />
-            {showMore ? (
-              ""
-            ) : (
-              <p onClick={() => setshowMore(true)} className="cursor-pointer">
-                ...more
+    <div className="title text-[#DDDDDD] max-w-[1227px] my-3 bg-[#272727] overflow-hidden p-3 rounded-xl ml-20">
+      <div className="flex flex-wrap items-center gap-2">
+        <b>
+          {views} Views • {publishedAt}
+        </b>
+        <Link to="#" className="hover:underline">
+          {snippet?.title}
+        </Link>
+      </div>
+
+      <div className="mt-2">
+        {!showMore ? (
+          <>
+            {description.length > 400 ? description.slice(0, 400) + '...' : description}
+            {description.length > 400 && (
+              <p onClick={() => setShowMore(true)} className="cursor-pointer text-blue-400">
+                Show more
               </p>
             )}
+          </>
+        ) : (
+          <>
+            {description}
+            <p
+              onClick={() => setShowMore(false)}
+              className="cursor-pointer text-blue-400 font-semibold mt-2"
+            >
+              Show less
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
 
-            {showMore && (
-              <div>
-                {fetchData.items[0].snippet.description}
-                <p
-                  onClick={() => setshowMore(false)}
-                  className="cursor-pointer"
-                >
-                  <b>Show Less </b>
-                </p>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-    </>
-  );
-};
-
-export default VideoDescription;
+export default VideoDescription
