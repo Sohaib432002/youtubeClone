@@ -94,7 +94,13 @@ const PostComments = () => {
               </span>
             </div>
           </div>
-          
+        </div>
+        <div className="w-[100%] ">
+          {commentData.length === 0 ? (
+            <CommentSkel commentData={commentData} />
+          ) : (
+            <Comments fetchData={fetchData} commentData={commentData} />
+          )}
         </div>
       </div>
     </>

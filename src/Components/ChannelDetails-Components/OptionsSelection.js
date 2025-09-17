@@ -4,8 +4,8 @@ const OptionsSelection = () => {
   return (
     <>
       <div className="">
-        <div className="text-white top-0 z-50 sticky">
-          <ul className="flex sticky optionsSelection ">
+        <div className="text-white top-0 ">
+          <ul className="flex  optionsSelection ">
             <li>
               <Link to="./">Home</Link>
             </li>
@@ -19,7 +19,7 @@ const OptionsSelection = () => {
               <Link to="./Posts">Posts</Link>
             </li>
           </ul>
-          <hr className="w-full overflow-visible " />
+          <hr className="w-full " />
         </div>
       </div>
     </>

@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
 
-const PostCard = () => {
+const   PostCard = () => {
   return (
     <Link>
       <div className="w-[500px] px-3 py-1 my-3 mx-2 cursor-pointer border-[1px] bg-gray-600 rounded-lg ">
