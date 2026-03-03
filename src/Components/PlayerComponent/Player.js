@@ -15,7 +15,7 @@ const Player = ({ fetchData, channelData }) => {
 
   return (
     <>
-      <div className="max-w-[1227px] player aspect-video overflow-hidden rounded-[10px] mx-auto">
+      <div className="w-[100%] player aspect-video overflow-hidden rounded-[10px] mx-auto">
         <iframe
           className="w-full h-full"
           src={`https://www.youtube.com/embed/${id}`}

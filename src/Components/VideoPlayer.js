@@ -62,7 +62,7 @@ const VideoPlayer = () => {
     <div
       className={`grid text-[#AAAAAA] max-w-[1666px] bg-[#0f0f0f] m-auto VideoPlayer pt-[119px]`}
     >
-      <div className={`flex flex-col ${windowResize <= 1170 ? ' grid-rows-3' : ''} max-w-[1500px]`}>
+      <div className={`flex flex-col ${windowResize <= 1170 ? ' grid-rows-3' : ''}  max-w-[1500px]`}>
         <Player fetchData={fetchData} />
         <VideoDescription fetchData={fetchData} />
         <div className="comments-section">
