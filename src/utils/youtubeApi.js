@@ -13,6 +13,20 @@ const YT_API_KEYS = [
 export const DJANGO_API_URL =
   process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000/api'
 
+const FETCH_TIMEOUT_MS = 4500
+
+async function fetchJson(url, { timeout = FETCH_TIMEOUT_MS } = {}) {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeout)
+  try {
+    const res = await fetch(url, { signal: ctrl.signal })
+    const data = await res.json().catch(() => null)
+    return { res, data }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 function isValidYoutubePayload(data) {
   return data && !data.error && Array.isArray(data.items)
 }
@@ -20,13 +34,12 @@ function isValidYoutubePayload(data) {
 async function fetchWithYoutubeKeys(buildUrl) {
   for (const key of YT_API_KEYS) {
     try {
-      const res = await fetch(buildUrl(key))
-      const data = await res.json()
+      const { res, data } = await fetchJson(buildUrl(key))
       if (res.ok && isValidYoutubePayload(data)) {
         return data
       }
     } catch (_) {
-      /* try next key */
+      /* try next key / timeout */
     }
   }
   return null
@@ -97,9 +110,11 @@ function mapDjangoComment(c) {
 
 async function fetchDjango(path) {
   try {
-    const res = await fetch(`${DJANGO_API_URL}${path}`)
+    const { res, data } = await fetchJson(`${DJANGO_API_URL}${path}`, {
+      timeout: 2500,
+    })
     if (!res.ok) return null
-    return await res.json()
+    return data
   } catch (_) {
     return null
   }
@@ -107,7 +122,10 @@ async function fetchDjango(path) {
 
 async function localSearchMock() {
   const mod = await import('../FetchedData')
-  return mod.default
+  const payload = mod.default
+  if (payload?.items) return payload
+  if (Array.isArray(payload) && payload[0]?.items) return payload[0]
+  return { kind: 'youtube#searchListResponse', items: [] }
 }
 
 /** Home / search listing (YouTube searchListResponse shape) */

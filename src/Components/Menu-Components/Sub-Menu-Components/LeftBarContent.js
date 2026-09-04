@@ -3,6 +3,7 @@ import { useAuth } from '../../../Hooks/AuthContext'
 import { useContext, useState } from 'react'
 import { ThemeContext } from '../../../Hooks/ThemeContext'
 import { getSubscriptionsPreview } from '../../../data/mockCatalog'
+import { useSubscriptions } from '../../../Hooks/SubscriptionsContext'
 
 const primary = [
   { to: '/', label: 'Home', icon: 'fa-solid fa-house', end: true },
@@ -15,7 +16,7 @@ const youLinks = [
   { to: '/history', label: 'History', icon: 'fa-solid fa-clock-rotate-left' },
   { to: '/you', label: 'Playlists', icon: 'fa-solid fa-list' },
   { to: '/you', label: 'Watch later', icon: 'fa-regular fa-clock' },
-  { to: '/you', label: 'Liked videos', icon: 'fa-regular fa-thumbs-up' },
+  { to: '/liked', label: 'Liked videos', icon: 'fa-regular fa-thumbs-up' },
   { to: '/downloads', label: 'Downloads', icon: 'fa-solid fa-download' },
 ]
 
@@ -35,11 +36,21 @@ const linkClass = ({ isActive }) =>
 
 const LeftBarContent = () => {
   const { isSignedIn, openSignIn, user } = useAuth()
+  const { subscriptions } = useSubscriptions()
   const { setActiveCategory, setisShowLeftbar, windowResize } = useContext(ThemeContext)
   const navigate = useNavigate()
   const [showAllSubs, setShowAllSubs] = useState(false)
   const [showMoreYou, setShowMoreYou] = useState(false)
-  const subs = getSubscriptionsPreview()
+  const previewSubs = getSubscriptionsPreview()
+  const subs = isSignedIn && subscriptions.length
+    ? subscriptions.map((s) => ({
+        id: s.channelId,
+        title: s.title,
+        avatar: s.avatar,
+        hasNew: false,
+        isLive: false,
+      }))
+    : previewSubs
   const visibleSubs = showAllSubs ? subs : subs.slice(0, 5)
   const visibleYou = showMoreYou ? youLinks : youLinks.slice(0, 4)
 

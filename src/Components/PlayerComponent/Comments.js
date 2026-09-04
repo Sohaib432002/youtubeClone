@@ -12,9 +12,11 @@ const Comments = ({ fetchData, commentData }) => {
   const [writeComment, setWriteComment] = useState('')
   const [localComments, setLocalComments] = useState([])
 
+  const videoId =
+    (fetchData && fetchData.items && fetchData.items[0] && fetchData.items[0].id) || ''
   useEffect(() => {
     setLocalComments([])
-  }, [fetchData?.items?.[0]?.id])
+  }, [videoId])
 
   const channelName = user?.name || 'YouTubeClone User'
   const channelId = user?.handle || `@${(user?.name || 'user').toLowerCase().replace(/\s+/g, '')}`

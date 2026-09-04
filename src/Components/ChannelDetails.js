@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState } from 'react'
 import { Outlet, useParams } from 'react-router'
 import { ThemeContext } from '../Hooks/ThemeContext'
+import { useSubscriptions } from '../Hooks/SubscriptionsContext'
 import { getChannelsByIds, searchVideos } from '../utils/youtubeApi'
 import { CHANNELS, VIDEOS, toSearchItem } from '../data/mockCatalog'
 import ChannelBanner from './ChannelDetails-Components/ChannelBanner'
@@ -10,9 +11,11 @@ import OptionsSelection from './ChannelDetails-Components/OptionsSelection'
 const ChannelDetails = () => {
   const { channelId } = useParams()
   const { setisShowScrollbar } = useContext(ThemeContext)
+  const { getSubscriberCount, ensureChannelCount } = useSubscriptions()
   const [channelData, setChannelData] = useState(null)
   const [channelVideos, setChannelVideos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     setisShowScrollbar(false)
@@ -20,18 +23,32 @@ const ChannelDetails = () => {
 
   useEffect(() => {
     let cancelled = false
-    const id = channelId || 'ch_campusx'
+    const id = channelId
 
     const load = async () => {
+      if (!id) {
+        setError('Missing channel id')
+        setLoading(false)
+        return
+      }
       setLoading(true)
+      setError('')
+      setChannelData(null)
+      setChannelVideos([])
+
       const local = CHANNELS.find((c) => c.id === id)
       if (local) {
+        const vids = VIDEOS.filter((v) => v.channelId === local.id).map(toSearchItem)
+        const baseSubs = local.subscribers
+        ensureChannelCount(local.id, baseSubs)
         const fake = {
           id: local.id,
           snippet: {
             title: local.title,
             customUrl: local.handle,
-            description: `Welcome to ${local.title}. ${local.subscribers} subscribers.`,
+            description:
+              local.description ||
+              `Welcome to ${local.title}. Independent channel with its own videos and subscribers.`,
             thumbnails: {
               high: { url: local.avatar },
               medium: { url: local.avatar },
@@ -39,15 +56,18 @@ const ChannelDetails = () => {
             },
           },
           statistics: {
-            subscriberCount: local.subscribers,
-            videoCount: String(VIDEOS.filter((v) => v.channelId === local.id).length),
+            subscriberCount: String(getSubscriberCount(local.id, baseSubs)),
+            videoCount: String(vids.length),
           },
           brandingSettings: {
             channel: { title: local.title },
-            image: {},
+            image: {
+              bannerExternalUrl:
+                local.banner ||
+                `https://picsum.photos/seed/${encodeURIComponent(local.id)}/1280/220`,
+            },
           },
         }
-        const vids = VIDEOS.filter((v) => v.channelId === local.id).map(toSearchItem)
         if (!cancelled) {
           setChannelData(fake)
           setChannelVideos(vids)
@@ -60,15 +80,33 @@ const ChannelDetails = () => {
         const data = await getChannelsByIds([id])
         if (cancelled) return
         if (data?.items?.length) {
-          setChannelData(data.items[0])
-          const title = data.items[0].snippet?.title || ''
+          const ch = data.items[0]
+          ensureChannelCount(ch.id, ch.statistics?.subscriberCount)
+          setChannelData({
+            ...ch,
+            statistics: {
+              ...ch.statistics,
+              subscriberCount: String(
+                getSubscriberCount(ch.id, ch.statistics?.subscriberCount)
+              ),
+            },
+          })
+          const title = ch.snippet?.title || ''
           const videos = await searchVideos(title, 24)
-          if (!cancelled) setChannelVideos(videos?.items || [])
+          // Prefer videos that actually belong to this channel id
+          const filtered = (videos?.items || []).filter(
+            (v) => !v.snippet?.channelId || v.snippet.channelId === id
+          )
+          if (!cancelled) {
+            setChannelVideos(filtered.length ? filtered : videos?.items || [])
+          }
         } else {
           setChannelData(null)
+          setError('No channel data found')
         }
       } catch (err) {
         console.error(err)
+        if (!cancelled) setError('Failed to load channel')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -78,10 +116,52 @@ const ChannelDetails = () => {
     return () => {
       cancelled = true
     }
-  }, [channelId])
+    // getSubscriberCount changes with counts — re-run when channelId changes only;
+    // live count is refreshed below via derived display in ChannelIntro
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId, setisShowScrollbar, ensureChannelCount])
 
-  if (loading) return <p className="text-white p-5 pt-24">Loading Channel Details...</p>
-  if (!channelData) return <p className="text-white p-5 pt-24">No Channel Data Found</p>
+  // Keep displayed subscriberCount in sync with subscription toggles
+  useEffect(() => {
+    if (!channelData?.id) return
+    setChannelData((prev) => {
+      if (!prev) return prev
+      const nextCount = getSubscriberCount(prev.id, prev.statistics?.subscriberCount)
+      if (String(prev.statistics?.subscriberCount) === String(nextCount)) return prev
+      return {
+        ...prev,
+        statistics: {
+          ...prev.statistics,
+          subscriberCount: String(nextCount),
+        },
+      }
+    })
+  }, [channelData?.id, getSubscriberCount])
+
+  if (loading) {
+    return (
+      <div className="pt-24 px-4 max-w-[1300px] m-auto animate-pulse">
+        <div className="h-28 sm:h-40 rounded-xl bg-[#272727] mb-6" />
+        <div className="flex gap-4">
+          <div className="w-24 h-24 sm:w-40 sm:h-40 rounded-full bg-[#272727]" />
+          <div className="flex-1 space-y-3 pt-2">
+            <div className="h-8 w-48 bg-[#272727] rounded" />
+            <div className="h-4 w-72 bg-[#272727] rounded" />
+            <div className="h-4 w-96 max-w-full bg-[#272727] rounded" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!channelData) {
+    return (
+      <div className="text-white p-5 pt-24 text-center">
+        <p className="text-lg mb-2">{error || 'No Channel Data Found'}</p>
+        <p className="text-sm text-[#aaa]">Try another channel from Home or Search.</p>
+      </div>
+    )
+  }
 
   const bannerExternalUrl = channelData?.brandingSettings?.image?.bannerExternalUrl
   const ChannelPic =

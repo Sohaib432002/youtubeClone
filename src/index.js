@@ -12,6 +12,7 @@ import Self from './Components/Menu-Components/Self'
 import Shorts from './Components/Menu-Components/Shorts'
 import ShortsPlayer from './Components/Menu-Components/ShortsPlayer'
 import Downloads from './Components/Menu-Components/Downloads'
+import LikedVideos from './Components/Menu-Components/LikedVideos'
 import Settings from './Components/Menu-Components/Settings'
 import Subscriptions from './Components/Menu-Components/Subsciptions'
 import MenuOptions from './Components/MenuOptions'
@@ -22,6 +23,8 @@ import { ThemeProvider } from './Hooks/ThemeContext'
 import { AuthProvider } from './Hooks/AuthContext'
 import { HistoryProvider } from './Hooks/HistoryContext'
 import { PrefsProvider } from './Hooks/PrefsContext'
+import { LikesProvider } from './Hooks/LikesContext'
+import { SubscriptionsProvider } from './Hooks/SubscriptionsContext'
 import './index.css'
 import './App.css'
 import PostDetails from './Components/ChannelDetails-Components/PostDetails'
@@ -51,6 +54,7 @@ const router = createBrowserRouter([
           { path: '/you', element: <Self /> },
           { path: '/history', element: <History /> },
           { path: '/downloads', element: <Downloads /> },
+          { path: '/liked', element: <LikedVideos /> },
           { path: '/settings', element: <Settings /> },
           { path: '/result/:text', element: <Result /> },
           {
@@ -78,11 +82,15 @@ ReactDOM.createRoot(root).render(
   <AuthProvider>
     <HistoryProvider>
       <PrefsProvider>
-        <CallContextFun>
-          <ThemeProvider>
-            <RouterProvider router={router} />
-          </ThemeProvider>
-        </CallContextFun>
+        <LikesProvider>
+          <SubscriptionsProvider>
+            <CallContextFun>
+              <ThemeProvider>
+                <RouterProvider router={router} />
+              </ThemeProvider>
+            </CallContextFun>
+          </SubscriptionsProvider>
+        </LikesProvider>
       </PrefsProvider>
     </HistoryProvider>
   </AuthProvider>

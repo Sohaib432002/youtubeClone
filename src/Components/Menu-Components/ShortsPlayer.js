@@ -3,14 +3,16 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { SHORTS } from '../../data/mockCatalog'
 import { formatViews } from '../../utils/format'
 import { useWatchHistory } from '../../Hooks/HistoryContext'
+import { useLikes } from '../../Hooks/LikesContext'
+import SubscribeButton from '../ui/SubscribeButton'
 
 const ShortsPlayer = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const { addToHistory } = useWatchHistory()
+  const { isLiked, toggleLike } = useLikes()
   const containerRef = useRef(null)
   const [active, setActive] = useState(0)
-  const [likes, setLikes] = useState({})
   const [dislikes, setDislikes] = useState({})
 
   const startIndex = useMemo(() => {
@@ -106,14 +108,23 @@ const ShortsPlayer = () => {
 
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/90 via-black/35 to-transparent">
                   <div className="pointer-events-auto flex items-center gap-2 mb-2">
-                    <img src={s.channelAvatar} alt="" className="w-9 h-9 rounded-full" />
-                    <span className="text-white text-sm font-medium">{s.channelHandle}</span>
-                    <button
-                      type="button"
-                      className="ml-1 bg-white text-black text-xs font-semibold px-3 py-1 rounded-full"
+                    <Link to={`/channel/${s.channelId}`}>
+                      <img src={s.channelAvatar} alt="" className="w-9 h-9 rounded-full" />
+                    </Link>
+                    <Link
+                      to={`/channel/${s.channelId}`}
+                      className="text-white text-sm font-medium hover:underline"
                     >
-                      Subscribe
-                    </button>
+                      {s.channelHandle}
+                    </Link>
+                    <SubscribeButton
+                      channelId={s.channelId}
+                      title={s.channelTitle}
+                      handle={s.channelHandle}
+                      avatar={s.channelAvatar}
+                      size="sm"
+                      className="ml-1 !py-1"
+                    />
                   </div>
                   <p className="text-white text-sm line-clamp-2 mb-1">{s.title}</p>
                   <p className="text-[#ddd] text-xs flex items-center gap-1">
@@ -126,21 +137,45 @@ const ShortsPlayer = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setLikes((p) => ({ ...p, [s.id]: !p[s.id] }))
+                    toggleLike({
+                      videoId: s.videoId,
+                      title: s.title,
+                      thumbnail: `https://i.ytimg.com/vi/${s.videoId}/mqdefault.jpg`,
+                      channelTitle: s.channelTitle,
+                      channelId: s.channelId,
+                      channelLogo: s.channelAvatar,
+                      views: s.views,
+                      duration: s.duration,
+                      publishedAt: s.publishedAt,
+                    })
                     setDislikes((p) => ({ ...p, [s.id]: false }))
                   }}
                   className="flex flex-col items-center"
                 >
                   <span className="w-12 h-12 rounded-full bg-white/15 flex items-center justify-center">
-                    <i className={`fa-solid fa-thumbs-up ${likes[s.id] ? 'text-[#3ea6ff]' : ''}`}></i>
+                    <i
+                      className={`fa-solid fa-thumbs-up ${
+                        isLiked(s.videoId) ? 'text-[#3ea6ff]' : ''
+                      }`}
+                    ></i>
                   </span>
-                  <span className="text-xs mt-1">{formatViews(s.likes)}</span>
+                  <span className="text-xs mt-1">
+                    {formatViews(s.likes + (isLiked(s.videoId) ? 1 : 0))}
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setDislikes((p) => ({ ...p, [s.id]: !p[s.id] }))
-                    setLikes((p) => ({ ...p, [s.id]: false }))
+                    if (!dislikes[s.id] && isLiked(s.videoId)) {
+                      toggleLike({
+                        videoId: s.videoId,
+                        title: s.title,
+                        thumbnail: `https://i.ytimg.com/vi/${s.videoId}/mqdefault.jpg`,
+                        channelTitle: s.channelTitle,
+                        channelId: s.channelId,
+                      })
+                    }
                   }}
                   className="flex flex-col items-center"
                 >

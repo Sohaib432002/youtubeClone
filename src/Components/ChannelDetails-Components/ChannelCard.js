@@ -1,29 +1,45 @@
-import React from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
+import { formatViews } from '../../utils/format'
+import { useSubscriptions } from '../../Hooks/SubscriptionsContext'
+import SubscribeButton from '../ui/SubscribeButton'
 
-const ChannelCard = () => {
+/** Related / other-channel card with channel-specific subscribe count */
+const ChannelCard = ({
+  channelId,
+  title = 'Channel',
+  avatar,
+  handle = '',
+  subscriberCount,
+}) => {
+  const { getSubscriberCount } = useSubscriptions()
+  const count = getSubscriberCount(channelId, subscriberCount)
+  const logo = avatar || '/favicon.ico'
+  const to = channelId ? `/channel/${channelId}` : '#'
+
   return (
-    <Link>
-      <div>
-        <div className=" flex justify-center px-10 py-1 items-center img-otherchannel">
-          <img
-            src={
-              'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTR8fHByb2ZpbGV8ZW58MHx8MHx8fDA%3D'
-            }
-            className="rounded-full"
-            alt=""
-            width={100}
-          />
-        </div>
-        <div className="flex flex-col justify-center text-[14px] items-center text-other-Channel">
-          <span>Junaid Akram Shorts</span>
-          <span>61.8k Subscribers</span>
-          <div className="flex justify-center items-center my-4 cursor-pointer bg-gray-100 hover:bg-gray-300 px-3 py-1 rounded-full btn-other-channel">
-            <span className="text-gray-500 font-sans">Subscribe</span>
-          </div>
-        </div>
+    <div className="flex flex-col items-center text-center px-4 py-3">
+      <Link to={to} className="block">
+        <img
+          src={logo}
+          className="rounded-full w-[88px] h-[88px] object-cover bg-[#272727]"
+          alt=""
+        />
+      </Link>
+      <Link to={to} className="mt-3 text-[14px] text-white font-medium line-clamp-2 hover:underline">
+        {title}
+      </Link>
+      <span className="text-[12px] text-[#aaa] mt-1">{formatViews(count)} subscribers</span>
+      <div className="mt-3">
+        <SubscribeButton
+          channelId={channelId}
+          title={title}
+          handle={handle}
+          avatar={logo}
+          subscriberCount={count}
+          size="sm"
+        />
       </div>
-    </Link>
+    </div>
   )
 }
 

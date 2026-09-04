@@ -5,7 +5,7 @@ import { getShortsPage } from '../../data/mockCatalog'
 import { formatViews } from '../../utils/format'
 
 const Shorts = () => {
-  const { setisShowScrollbar, isShowLeftbar, windowResize } = useContext(ThemeContext)
+  const { setisShowScrollbar, isDesktopSidebar, windowResize } = useContext(ThemeContext)
   const [items, setItems] = useState([])
   const [next, setNext] = useState(0)
   const [hasMore, setHasMore] = useState(true)
@@ -38,8 +38,11 @@ const Shorts = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [next, hasMore])
 
-  const leftPad =
-    windowResize < 768 ? 'ml-0' : isShowLeftbar ? 'md:ml-[240px]' : 'md:ml-[72px]'
+  const leftPad = isDesktopSidebar
+    ? 'lg:ml-[240px]'
+    : windowResize >= 768
+      ? 'md:ml-[72px]'
+      : 'ml-0'
 
   return (
     <div className={`min-h-screen pt-[90px] pb-20 px-3 sm:px-6 ${leftPad}`}>
@@ -47,19 +50,19 @@ const Shorts = () => {
         <i className="fa-solid fa-bolt text-red-500 text-2xl"></i>
         <h1 className="text-2xl font-bold">Shorts</h1>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
         {items.map((s) => (
           <Link key={s.id} to={`/shorts/${s.videoId}`} className="group">
-            <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-[#272727]">
+            <div className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-[#272727] ring-1 ring-white/5">
               <img
                 src={s.thumbnails.medium.url}
                 alt=""
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-300"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
-              <div className="absolute bottom-0 p-2">
-                <p className="text-white text-xs font-medium line-clamp-2">{s.title}</p>
-                <p className="text-[#ccc] text-[11px] mt-1">{formatViews(s.views)} views</p>
+              <div className="absolute bottom-0 p-3">
+                <p className="text-white text-sm font-medium line-clamp-2 leading-snug">{s.title}</p>
+                <p className="text-[#ccc] text-xs mt-1.5">{formatViews(s.views)} views</p>
               </div>
             </div>
           </Link>

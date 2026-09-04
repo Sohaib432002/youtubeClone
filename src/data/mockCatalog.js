@@ -42,6 +42,9 @@ export const CHANNELS = [
     avatar: 'https://i.pravatar.cc/100?u=campusx',
     subscribers: '1.2M',
     verified: true,
+    description:
+      'Deep learning, data science, and AI tutorials for students and professionals.',
+    banner: 'https://picsum.photos/seed/ch_campusx/1280/220',
   },
   {
     id: 'ch_codewithharry',
@@ -50,6 +53,8 @@ export const CHANNELS = [
     avatar: 'https://i.pravatar.cc/100?u=harry',
     subscribers: '5.8M',
     verified: true,
+    description: 'Programming courses — web development, Python, and more.',
+    banner: 'https://picsum.photos/seed/ch_codewithharry/1280/220',
   },
   {
     id: 'ch_mrbeast',
@@ -58,6 +63,8 @@ export const CHANNELS = [
     avatar: 'https://i.pravatar.cc/100?u=mrbeast',
     subscribers: '320M',
     verified: true,
+    description: 'Challenges, philanthropy, and epic stunts.',
+    banner: 'https://picsum.photos/seed/ch_mrbeast/1280/220',
   },
   {
     id: 'ch_veritasium',
@@ -66,6 +73,8 @@ export const CHANNELS = [
     avatar: 'https://i.pravatar.cc/100?u=veritasium',
     subscribers: '16M',
     verified: true,
+    description: 'Science and engineering explained with curiosity.',
+    banner: 'https://picsum.photos/seed/ch_veritasium/1280/220',
   },
   {
     id: 'ch_freecodecamp',
@@ -74,6 +83,8 @@ export const CHANNELS = [
     avatar: 'https://i.pravatar.cc/100?u=fcc',
     subscribers: '10M',
     verified: true,
+    description: 'Learn to code for free — full courses on web and data.',
+    banner: 'https://picsum.photos/seed/ch_freecodecamp/1280/220',
   },
   {
     id: 'ch_ted',
@@ -82,6 +93,8 @@ export const CHANNELS = [
     avatar: 'https://i.pravatar.cc/100?u=ted',
     subscribers: '25M',
     verified: true,
+    description: 'Ideas worth spreading from thinkers around the world.',
+    banner: 'https://picsum.photos/seed/ch_ted/1280/220',
   },
   {
     id: 'ch_nba',
@@ -90,6 +103,8 @@ export const CHANNELS = [
     avatar: 'https://i.pravatar.cc/100?u=nba',
     subscribers: '22M',
     verified: true,
+    description: 'Official NBA highlights, analysis, and exclusive content.',
+    banner: 'https://picsum.photos/seed/ch_nba/1280/220',
   },
   {
     id: 'ch_natgeo',
@@ -98,6 +113,8 @@ export const CHANNELS = [
     avatar: 'https://i.pravatar.cc/100?u=natgeo',
     subscribers: '24M',
     verified: true,
+    description: 'Explore the world through documentaries and wildlife.',
+    banner: 'https://picsum.photos/seed/ch_natgeo/1280/220',
   },
   {
     id: 'ch_mkbhd',
@@ -106,6 +123,8 @@ export const CHANNELS = [
     avatar: 'https://i.pravatar.cc/100?u=mkbhd',
     subscribers: '19M',
     verified: true,
+    description: 'Tech reviews and thoughtful takes on consumer gadgets.',
+    banner: 'https://picsum.photos/seed/ch_mkbhd/1280/220',
   },
   {
     id: 'ch_fitness',
@@ -114,6 +133,8 @@ export const CHANNELS = [
     avatar: 'https://i.pravatar.cc/100?u=athlean',
     subscribers: '13M',
     verified: true,
+    description: 'Science-based fitness training and injury prevention.',
+    banner: 'https://picsum.photos/seed/ch_fitness/1280/220',
   },
   {
     id: 'ch_food',
@@ -122,6 +143,8 @@ export const CHANNELS = [
     avatar: 'https://i.pravatar.cc/100?u=tasty',
     subscribers: '21M',
     verified: true,
+    description: 'Recipes and food ideas you can make at home.',
+    banner: 'https://picsum.photos/seed/ch_food/1280/220',
   },
   {
     id: 'ch_travel',
@@ -130,6 +153,8 @@ export const CHANNELS = [
     avatar: 'https://i.pravatar.cc/100?u=travel',
     subscribers: '3.4M',
     verified: true,
+    description: 'Travel vlogs from around the globe.',
+    banner: 'https://picsum.photos/seed/ch_travel/1280/220',
   },
 ]
 

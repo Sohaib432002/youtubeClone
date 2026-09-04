@@ -7,6 +7,7 @@ COPY public ./public
 COPY src ./src
 COPY tailwind.config.js postcss.config.js .babelrc ./
 ENV REACT_APP_API_URL=/api
+ENV CI=false
 RUN npm run build
 
 FROM python:3.12-slim-bookworm

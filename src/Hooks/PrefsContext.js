@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 const PrefsContext = createContext(null)
 const STORAGE_KEY = 'yt_clone_prefs'
@@ -20,20 +20,20 @@ export const PrefsProvider = ({ children }) => {
   })
   const [toast, setToast] = useState('')
 
-  const setPrefs = (patch) => {
+  const setPrefs = useCallback((patch) => {
     setPrefsState((prev) => {
       const next = typeof patch === 'function' ? patch(prev) : { ...prev, ...patch }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
       return next
     })
-  }
+  }, [])
 
-  const setPref = (key, value) => {
+  const setPref = useCallback((key, value) => {
     setPrefs({ [key]: value })
     setToast(`${key[0].toUpperCase()}${key.slice(1)} set to ${value}`)
     window.clearTimeout(setPref._t)
     setPref._t = window.setTimeout(() => setToast(''), 2200)
-  }
+  }, [setPrefs])
 
   useEffect(() => {
     const root = document.documentElement
@@ -58,9 +58,10 @@ export const PrefsProvider = ({ children }) => {
     root.dataset.location = prefs.location
   }, [prefs])
 
+  const clearToast = useCallback(() => setToast(''), [])
   const value = useMemo(
-    () => ({ prefs, setPrefs, setPref, toast, clearToast: () => setToast('') }),
-    [prefs, toast]
+    () => ({ prefs, setPrefs, setPref, toast, clearToast }),
+    [prefs, setPrefs, setPref, toast, clearToast]
   )
 
   return (

@@ -4,7 +4,10 @@ import { formatViews, timeAgo } from '../../utils/format'
 
 const Card = ({ item, channelLogo }) => {
   const [menuOpen, setMenuOpen] = useState(false)
-  const videoId = item?.id?.videoId || item?.meta?.videoId
+  const videoId =
+    item?.id?.videoId ||
+    (typeof item?.id === 'string' ? item.id : null) ||
+    item?.meta?.videoId
   const meta = item?.meta
   if (!videoId || !item?.snippet) return null
 

@@ -11,7 +11,8 @@ import CreateMenu from './Navbar-Components/CreateMenu'
 import { ThemeContext } from '../Hooks/ThemeContext'
 import { useAuth } from '../Hooks/AuthContext'
 const Navbar = ({ searchIcon, setSearchIcon }) => {
-  const { isShowLeftbar, toggleLeftbar, isShowScrollbar } = useContext(ThemeContext)
+  const { isShowLeftbar, toggleLeftbar, isShowScrollbar, isDesktopSidebar } =
+    useContext(ThemeContext)
   const { user, isSignedIn, openSignIn, signOut } = useAuth()
   const [isshowsearchBar, setisshowsearchBar] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -46,7 +47,7 @@ const Navbar = ({ searchIcon, setSearchIcon }) => {
 
               <div
                 className={`flex nav-input flex-grow max-w-[600px] mx-2 lg:mx-[43px] ${
-                  isShowLeftbar ? 'lg:mx-[100px]' : ''
+                  isDesktopSidebar || isShowLeftbar ? 'lg:mx-[100px]' : ''
                 } items-center min-w-0`}
               >
                 <Input searchIcon={searchIcon} setSearchIcon={setSearchIcon} />
@@ -114,9 +115,13 @@ const Navbar = ({ searchIcon, setSearchIcon }) => {
                 )}
               </div>
             </div>
-            {isShowScrollbar ? <ScrollBar leftBar={isShowLeftbar} /> : ''}
+            {isShowScrollbar ? (
+              <ScrollBar leftBar={isDesktopSidebar || isShowLeftbar} />
+            ) : (
+              ''
+            )}
           </div>
-          {isShowLeftbar ? <Leftbar /> : ''}
+          <Leftbar />
           <SignInModal />
         </>
       )}

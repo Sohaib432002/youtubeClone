@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ThemeContext } from '../../Hooks/ThemeContext'
 import { usePrefs } from '../../Hooks/PrefsContext'
@@ -7,6 +7,7 @@ import { searchVideos, getChannelLogoMap } from '../../utils/youtubeApi'
 import { formatViews } from '../../utils/format'
 import Card from '../Home-components/Card'
 import ShowMoreButton from '../ui/ShowMoreButton'
+import fetchedData from '../../FetchedData'
 
 function isShortLike(item) {
   const title = (item?.snippet?.title || item?.meta?.title || '').toLowerCase()
@@ -28,23 +29,18 @@ function fullThumb(item) {
 }
 
 const Home = () => {
-  const {
-    isShowLeftbar,
-    windowResize,
-    setisShowScrollbar,
-    activeCategory,
-    miniSidebar,
-  } = useContext(ThemeContext)
+  const { windowResize, setisShowScrollbar, activeCategory, isDesktopSidebar } =
+    useContext(ThemeContext)
   const { prefs } = usePrefs()
 
-  const filterRestricted = (list) => {
+  const filterRestricted = useCallback((list) => {
     if (prefs.restricted !== 'On') return list
     const blocked = ['violence', 'adult', 'nsfw', '18+', 'horror']
     return list.filter((v) => {
       const t = `${v.snippet?.title || ''} ${v.snippet?.description || ''}`.toLowerCase()
       return !blocked.some((b) => t.includes(b))
     })
-  }
+  }, [prefs.restricted])
 
   const [items, setItems] = useState([])
   const [logoMap, setLogoMap] = useState({})
@@ -73,6 +69,48 @@ const Home = () => {
       const local = getVideosByCategory(activeCategory, 0, 24)
       let list = filterRestricted(local.items.filter((v) => !isShortLike(v)))
 
+      // Prefer your original FetchedData feed on Home / Trending
+      if (activeCategory === 'All' || activeCategory === 'Trending') {
+        const original = (fetchedData?.items || [])
+          .map((it) => {
+            const videoId =
+              (typeof it.id === 'string' && it.id) || it.id?.videoId
+            if (!videoId || !it.snippet) return null
+            return {
+              ...it,
+              id: { kind: 'youtube#video', videoId },
+              meta: {
+                videoId,
+                channelAvatar: null,
+                duration: '',
+                views: undefined,
+                verified: false,
+                isShort: false,
+              },
+            }
+          })
+          .filter((it) => it && !isShortLike(it))
+        if (original.length) {
+          const ids = new Set(original.map((m) => m.id.videoId))
+          list = filterRestricted([
+            ...original,
+            ...list.filter((x) => !ids.has(x.id?.videoId)),
+          ])
+        }
+      }
+
+      // Paint local/catalog videos immediately — never wait on YouTube API
+      if (!cancelled) {
+        setItems(list)
+        setHasMore(local.hasMore || list.length >= 20)
+        const localLogos = {}
+        list.forEach((v) => {
+          if (v.meta?.channelAvatar) localLogos[v.snippet.channelId] = v.meta.channelAvatar
+        })
+        setLogoMap(localLogos)
+        setLoading(false)
+      }
+
       if (activeCategory === 'All' || activeCategory === 'Trending') {
         try {
           const live = await searchVideos(
@@ -80,57 +118,72 @@ const Home = () => {
             16,
             { videoDuration: 'medium' }
           )
+          if (cancelled) return
           if (live?.items?.length) {
             const mapped = live.items
-              .filter((it) => !isShortLike(it))
-              .map((it) => ({
-                ...it,
-                snippet: {
-                  ...it.snippet,
-                  thumbnails: {
-                    ...it.snippet.thumbnails,
-                    medium: { url: fullThumb(it) },
-                    high: { url: fullThumb(it) },
+              .map((it) => {
+                const videoId =
+                  (typeof it.id === 'string' && it.id) ||
+                  it.id?.videoId ||
+                  it.meta?.videoId
+                if (!videoId || !it.snippet) return null
+                return {
+                  ...it,
+                  id: { kind: 'youtube#video', videoId },
+                  snippet: {
+                    ...it.snippet,
+                    thumbnails: {
+                      ...it.snippet.thumbnails,
+                      medium: { url: fullThumb({ ...it, id: { videoId } }) },
+                      high: { url: fullThumb({ ...it, id: { videoId } }) },
+                    },
                   },
-                },
-                meta: {
-                  videoId: it.id?.videoId,
-                  channelAvatar: null,
-                  duration: '',
-                  views: undefined,
-                  verified: false,
-                  isShort: false,
-                },
-              }))
+                  meta: {
+                    videoId,
+                    channelAvatar: null,
+                    duration: '',
+                    views: undefined,
+                    verified: false,
+                    isShort: false,
+                  },
+                }
+              })
+              .filter((it) => it && !isShortLike(it))
             const ids = new Set(mapped.map((m) => m.id?.videoId))
             list = filterRestricted([
               ...mapped,
               ...local.items.filter((x) => !ids.has(x.id?.videoId) && !isShortLike(x)),
             ])
+            if (!cancelled) {
+              setItems(list)
+              setHasMore(local.hasMore || list.length >= 20)
+            }
           }
         } catch (_) {
           /* keep local */
         }
       }
 
-      if (cancelled) return
-      setItems(list)
-      setHasMore(local.hasMore || list.length >= 20)
-      const logos = await getChannelLogoMap(
-        list.map((v) => v.snippet?.channelId).filter((id) => id && !String(id).startsWith('ch_'))
-      )
-      const localLogos = {}
-      list.forEach((v) => {
-        if (v.meta?.channelAvatar) localLogos[v.snippet.channelId] = v.meta.channelAvatar
-      })
-      if (!cancelled) setLogoMap({ ...localLogos, ...logos })
-      setLoading(false)
+      try {
+        const logos = await getChannelLogoMap(
+          list
+            .map((v) => v.snippet?.channelId)
+            .filter((id) => id && !String(id).startsWith('ch_'))
+        )
+        const localLogos = {}
+        list.forEach((v) => {
+          if (v.meta?.channelAvatar) localLogos[v.snippet.channelId] = v.meta.channelAvatar
+        })
+        if (!cancelled) setLogoMap({ ...localLogos, ...logos })
+      } catch (_) {
+        /* logos optional */
+      }
     }
     load()
     return () => {
       cancelled = true
     }
-  }, [activeCategory, prefs.restricted])
+  }, [activeCategory, filterRestricted])
 
   const loadMore = async () => {
     if (loadingRef.current || !hasMore) return
@@ -169,21 +222,20 @@ const Home = () => {
   }, [hasMore, page, activeCategory])
 
   const leftPad = useMemo(() => {
-    if (windowResize < 768) return 'ml-0'
-    if (isShowLeftbar) return 'md:ml-[240px]'
-    if (miniSidebar) return 'md:ml-[72px]'
-    return 'md:ml-[72px]'
-  }, [isShowLeftbar, windowResize, miniSidebar])
+    if (isDesktopSidebar) return 'lg:ml-[240px]'
+    if (windowResize >= 768) return 'md:ml-[72px]'
+    return 'ml-0'
+  }, [isDesktopSidebar, windowResize])
 
   const scrollShorts = (dir) => {
-    shortsRailRef.current?.scrollBy({ left: dir * 320, behavior: 'smooth' })
+    shortsRailRef.current?.scrollBy({ left: dir * 280, behavior: 'smooth' })
   }
 
   return (
-    <div className={`min-h-screen bg-[#0f0f0f] pt-[100px] pb-20 px-3 sm:px-4 lg:px-6 ${leftPad}`}>
+    <div className={`min-h-screen bg-[#0f0f0f] pt-[100px] pb-20 px-3 sm:px-4 lg:px-8 ${leftPad}`}>
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-          {Array.from({ length: 8 }).map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8">
+          {Array.from({ length: 9 }).map((_, i) => (
             <div key={i} className="animate-pulse">
               <div className="aspect-video rounded-xl bg-[#272727]" />
               <div className="flex gap-3 mt-3">
@@ -198,17 +250,18 @@ const Home = () => {
         </div>
       ) : (
         <>
-          <section className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-white">
+          <section className="mb-12">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2.5 text-white">
                 <i className="fa-solid fa-bolt text-red-500 text-xl"></i>
-                <h2 className="text-xl font-bold">Shorts</h2>
+                <h2 className="text-xl font-bold tracking-tight">Shorts</h2>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => scrollShorts(-1)}
                   className="w-9 h-9 rounded-full border border-[#3f3f3f] text-white hover:bg-[#272727]"
+                  aria-label="Scroll shorts left"
                 >
                   <i className="fa-solid fa-chevron-left text-xs"></i>
                 </button>
@@ -216,6 +269,7 @@ const Home = () => {
                   type="button"
                   onClick={() => scrollShorts(1)}
                   className="w-9 h-9 rounded-full border border-[#3f3f3f] text-white hover:bg-[#272727]"
+                  aria-label="Scroll shorts right"
                 >
                   <i className="fa-solid fa-chevron-right text-xs"></i>
                 </button>
@@ -226,24 +280,28 @@ const Home = () => {
             </div>
             <div
               ref={shortsRailRef}
-              className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 snap-x"
+              className="flex gap-4 sm:gap-5 overflow-x-auto scrollbar-hide pb-3 snap-x snap-mandatory"
             >
               {shorts.map((s) => (
                 <Link
                   key={s.id}
                   to={`/shorts/${s.videoId}`}
-                  className="snap-start flex-shrink-0 w-[160px] sm:w-[180px] group"
+                  className="snap-start flex-shrink-0 w-[200px] sm:w-[220px] md:w-[240px] group"
                 >
-                  <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-[#272727]">
+                  <div className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-[#272727] shadow-sm ring-1 ring-white/5">
                     <img
                       src={`https://i.ytimg.com/vi/${s.videoId}/mqdefault.jpg`}
                       alt=""
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-300"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-2">
-                      <p className="text-white text-xs font-medium line-clamp-2">{s.title}</p>
-                      <p className="text-[#ccc] text-[11px] mt-1">{formatViews(s.views)} views</p>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <p className="text-white text-sm font-medium line-clamp-2 leading-snug">
+                        {s.title}
+                      </p>
+                      <p className="text-[#ccc] text-xs mt-1.5">
+                        {formatViews(s.views)} views
+                      </p>
                     </div>
                   </div>
                 </Link>
@@ -251,8 +309,8 @@ const Home = () => {
             </div>
           </section>
 
-          <h2 className="text-white text-lg font-semibold mb-4">Recommended</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+          <h2 className="text-white text-lg font-semibold mb-5">Recommended</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8">
             {items.map((item, idx) => (
               <Card
                 key={`${item.id?.videoId || item.catalogId}-${idx}`}

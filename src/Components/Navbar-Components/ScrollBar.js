@@ -2,7 +2,7 @@ import { useContext, useEffect, useRef } from 'react'
 import { ThemeContext } from '../../Hooks/ThemeContext'
 
 const ScrollBar = ({ leftBar }) => {
-  const { activeCategory, setActiveCategory, categories, isShowLeftbar } =
+  const { activeCategory, setActiveCategory, categories, isDesktopSidebar } =
     useContext(ThemeContext)
   const scrollerRef = useRef(null)
 
@@ -15,7 +15,7 @@ const ScrollBar = ({ leftBar }) => {
     scrollerRef.current?.scrollBy({ left: dir * 260, behavior: 'smooth' })
   }
 
-  const pad = isShowLeftbar || leftBar ? 'md:ml-[240px]' : 'md:ml-[72px]'
+  const pad = isDesktopSidebar || leftBar ? 'lg:ml-[240px]' : 'md:ml-[72px]'
 
   return (
     <div className={`relative h-12 flex items-center ${pad} pr-2`}>

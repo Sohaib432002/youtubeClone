@@ -33,44 +33,56 @@ const VideoPlayer = () => {
   }, [setisShowScrollbar])
 
   useEffect(() => {
+    if (!id || id === 'undefined') {
+      setNotFound(true)
+      return
+    }
     let cancelled = false
 
     const load = async () => {
       setNotFound(false)
-      const catalog = getCatalogVideo(id)
 
+      // Prefer live YouTube / Django details so real titles match the video id
       if (location.state?.items) {
         if (!cancelled) setFetchData(location.state)
-      } else if (catalog) {
-        const item = toSearchItem(catalog)
-        const detail = {
-          kind: 'youtube#videoListResponse',
-          items: [
-            {
-              kind: 'youtube#video',
-              id: catalog.videoId,
-              snippet: {
-                ...item.snippet,
-                description: catalog.description,
-              },
-              statistics: item.statistics,
-            },
-          ],
-        }
-        if (!cancelled) setFetchData(detail)
       } else if (id) {
         const data = await getVideoDetails(id)
         if (cancelled) return
-        if (data?.items?.length) setFetchData(data)
-        else setNotFound(true)
+        if (data?.items?.length) {
+          if (!cancelled) setFetchData(data)
+        } else {
+          const catalog = getCatalogVideo(id)
+          if (catalog) {
+            const item = toSearchItem(catalog)
+            if (!cancelled) {
+              setFetchData({
+                kind: 'youtube#videoListResponse',
+                items: [
+                  {
+                    kind: 'youtube#video',
+                    id: catalog.videoId,
+                    snippet: {
+                      ...item.snippet,
+                      description: catalog.description,
+                    },
+                    statistics: item.statistics,
+                  },
+                ],
+              })
+            }
+          } else {
+            setNotFound(true)
+          }
+        }
       }
 
+      const catalog = getCatalogVideo(id)
       const video = catalog || null
       if (id) {
         addToHistory({
           videoId: id,
           title: video?.title || fetchData?.items?.[0]?.snippet?.title,
-          thumbnail: video?.thumbnails?.medium?.url,
+          thumbnail: video?.thumbnails?.medium?.url || `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
           channelTitle: video?.channelTitle,
           channelId: video?.channelId,
           channelLogo: video?.channelAvatar,
