@@ -1,6 +1,14 @@
 /**
- * YouTube Data API with multi-key fallback → Django backend → local mock.
- * Reuses the existing API keys already present in the project.
+ * YouTube Data API with multi-key fallback → Django (query-filtered) → empty.
+ *
+ * Each surface has its own function so Home / Search / Channel / Related
+ * never share one generic payload:
+ *   getHomeVideos()      → home feed
+ *   searchVideos(q)      → search page (requires q)
+ *   getChannelVideos(id) → uploads for that channelId
+ *   getRelatedVideos()   → videos related to the current title/video
+ *
+ * Failed live requests NEVER fall back to FetchedData or an unfiltered catalog.
  */
 
 const YT_API_KEYS = [
@@ -13,7 +21,54 @@ const YT_API_KEYS = [
 export const DJANGO_API_URL =
   process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000/api'
 
-const FETCH_TIMEOUT_MS = 4500
+const FETCH_TIMEOUT_MS = 8000
+
+/** YouTube `videos.list?chart=mostPopular` category IDs for home chips. */
+const YT_CATEGORY_IDS = {
+  Music: '10',
+  Gaming: '20',
+  News: '25',
+  Sports: '17',
+  Movies: '1',
+  Comedy: '23',
+  Education: '27',
+  Technology: '28',
+  Science: '28',
+  Entertainment: '24',
+  Travel: '19',
+}
+
+export function videoIdOf(item) {
+  if (!item) return ''
+  if (typeof item.id === 'string' && item.id) return item.id
+  return (
+    item.id?.videoId ||
+    item.snippet?.resourceId?.videoId ||
+    item.meta?.videoId ||
+    ''
+  )
+}
+
+export function dedupeByVideoId(items = []) {
+  const seen = new Set()
+  const out = []
+  for (const item of items) {
+    const id = videoIdOf(item)
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    out.push(item)
+  }
+  return out
+}
+
+function emptySearch(extra = {}) {
+  return {
+    kind: 'youtube#searchListResponse',
+    items: [],
+    nextPageToken: undefined,
+    ...extra,
+  }
+}
 
 async function fetchJson(url, { timeout = FETCH_TIMEOUT_MS } = {}) {
   const ctrl = new AbortController()
@@ -108,6 +163,38 @@ function mapDjangoComment(c) {
   }
 }
 
+function mapVideoListToSearchItem(v) {
+  const videoId = typeof v.id === 'string' ? v.id : v.id?.videoId
+  if (!videoId || !v.snippet) return null
+  return {
+    kind: 'youtube#searchResult',
+    id: { kind: 'youtube#video', videoId },
+    snippet: v.snippet,
+    statistics: v.statistics,
+    contentDetails: v.contentDetails,
+  }
+}
+
+function mapPlaylistItemToSearchItem(item) {
+  const videoId = item?.snippet?.resourceId?.videoId
+  const title = item?.snippet?.title || ''
+  if (!videoId || !item?.snippet) return null
+  if (title === 'Private video' || title === 'Deleted video') return null
+  return {
+    kind: 'youtube#searchResult',
+    id: { kind: 'youtube#video', videoId },
+    snippet: {
+      publishedAt: item.snippet.publishedAt,
+      channelId: item.snippet.channelId,
+      title,
+      description: item.snippet.description || '',
+      thumbnails: item.snippet.thumbnails,
+      channelTitle: item.snippet.channelTitle,
+      publishTime: item.snippet.publishedAt,
+    },
+  }
+}
+
 async function fetchDjango(path) {
   try {
     const { res, data } = await fetchJson(`${DJANGO_API_URL}${path}`, {
@@ -120,74 +207,273 @@ async function fetchDjango(path) {
   }
 }
 
-async function localSearchMock() {
-  const mod = await import('../FetchedData')
-  const payload = mod.default
-  if (payload?.items) return payload
-  if (Array.isArray(payload) && payload[0]?.items) return payload[0]
-  return { kind: 'youtube#searchListResponse', items: [] }
+function clampMax(n, fallback = 24) {
+  const v = Number(n)
+  if (!Number.isFinite(v) || v < 1) return fallback
+  return Math.min(50, Math.round(v))
 }
 
-/** Home / search listing (YouTube searchListResponse shape) */
+function buildSearchUrl(key, { q, channelId, type, order, maxResults, pageToken, videoDuration, eventType }) {
+  const params = new URLSearchParams({
+    part: 'snippet',
+    type: type || 'video',
+    maxResults: String(clampMax(maxResults)),
+    key,
+  })
+  if (q) params.set('q', q)
+  if (channelId) params.set('channelId', channelId)
+  if (order) params.set('order', order)
+  if (pageToken) params.set('pageToken', pageToken)
+  if (videoDuration) params.set('videoDuration', videoDuration)
+  if (eventType) params.set('eventType', eventType)
+  return `https://www.googleapis.com/youtube/v3/search?${params.toString()}`
+}
+
+/**
+ * Search page + shared query search.
+ * Requires a text query and/or a channelId. Never returns a generic dump.
+ */
 export async function searchVideos(
-  query = 'trending',
+  query = '',
   maxResults = 24,
-  { pageToken = '', videoDuration = '' } = {}
+  {
+    pageToken = '',
+    videoDuration = '',
+    order = 'relevance',
+    channelId = '',
+    eventType = '',
+    type = 'video',
+  } = {}
 ) {
-  const q = query && String(query).trim() ? query : 'trending'
-  const tokenPart = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''
-  const durationPart = videoDuration ? `&videoDuration=${videoDuration}` : ''
+  const q = query && String(query).trim() ? String(query).trim() : ''
+  if (!q && !channelId) return emptySearch()
 
-  const yt = await fetchWithYoutubeKeys(
-    (key) =>
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q=${encodeURIComponent(
-        q
-      )}&maxResults=${maxResults}${tokenPart}${durationPart}&key=${key}`
+  const yt = await fetchWithYoutubeKeys((key) =>
+    buildSearchUrl(key, {
+      q,
+      channelId,
+      type,
+      order,
+      maxResults,
+      pageToken,
+      videoDuration,
+      eventType,
+    })
   )
-  if (yt) return yt
-
-  if (!pageToken) {
-    // Prefer backend category filter when query looks like a category chip
-    const djangoCat = await fetchDjango(
-      `/videos/?category=${encodeURIComponent(q.split(' ')[0])}`
-    )
-    if (djangoCat && Array.isArray(djangoCat.results || djangoCat)) {
-      const list = djangoCat.results || djangoCat
-      if (list.length) {
-        return {
-          kind: 'youtube#searchListResponse',
-          items: list.map(mapDjangoVideoToSearchItem),
-          nextPageToken: undefined,
-        }
-      }
+  if (yt) {
+    let items = dedupeByVideoId(yt.items || [])
+    if (channelId) {
+      items = items.filter(
+        (it) => !it.snippet?.channelId || it.snippet.channelId === channelId
+      )
     }
+    return {
+      kind: 'youtube#searchListResponse',
+      items,
+      nextPageToken: yt.nextPageToken || undefined,
+    }
+  }
 
+  // Django search is query-filtered. Never use /videos/?category= for arbitrary q.
+  if (!pageToken && q && !channelId) {
     const django = await fetchDjango(`/search/?q=${encodeURIComponent(q)}`)
     if (django && Array.isArray(django.results || django)) {
       const list = django.results || django
       return {
         kind: 'youtube#searchListResponse',
-        items: list.map(mapDjangoVideoToSearchItem),
+        items: dedupeByVideoId(list.map(mapDjangoVideoToSearchItem)),
         nextPageToken: undefined,
       }
     }
-    return localSearchMock()
   }
 
-  // Paginate mock/django by rotating related queries when YouTube tokens unavailable
-  const alt = await fetchWithYoutubeKeys(
-    (key) =>
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q=${encodeURIComponent(
-        `${q} video`
-      )}&maxResults=${maxResults}&key=${key}`
-  )
-  if (alt) return alt
-
-  return { kind: 'youtube#searchListResponse', items: [], nextPageToken: undefined }
+  return emptySearch()
 }
 
 export async function searchShorts(maxResults = 20, pageToken = '') {
   return searchVideos('#shorts', maxResults, { pageToken, videoDuration: 'short' })
+}
+
+/**
+ * Home feed. Independent from search/channel/related.
+ * All / Trending / mapped chips → mostPopular; others → category search.
+ */
+export async function getHomeVideos(
+  category = 'All',
+  maxResults = 24,
+  { pageToken = '' } = {}
+) {
+  const cat = category || 'All'
+  const mapPopular = (payload) => {
+    if (!payload?.items?.length) return null
+    return {
+      kind: 'youtube#searchListResponse',
+      items: dedupeByVideoId(payload.items.map(mapVideoListToSearchItem).filter(Boolean)),
+      nextPageToken: payload.nextPageToken || undefined,
+    }
+  }
+
+  if (cat === 'All' || cat === 'Trending') {
+    const popular = await getMostPopular(maxResults, { pageToken })
+    const mapped = mapPopular(popular)
+    if (mapped) return mapped
+  } else if (cat === 'Live') {
+    const live = await searchVideos('live', maxResults, {
+      pageToken,
+      eventType: 'live',
+      order: 'date',
+    })
+    if (live.items?.length) return live
+  } else if (cat === 'Recently Uploaded') {
+    const recent = await searchVideos('new videos this week', maxResults, {
+      pageToken,
+      order: 'date',
+    })
+    if (recent.items?.length) return recent
+  } else if (YT_CATEGORY_IDS[cat]) {
+    const popular = await getMostPopular(maxResults, {
+      pageToken,
+      videoCategoryId: YT_CATEGORY_IDS[cat],
+    })
+    const mapped = mapPopular(popular)
+    if (mapped) return mapped
+  }
+
+  if (cat !== 'All' && cat !== 'Trending') {
+    const searched = await searchVideos(cat, maxResults, {
+      pageToken,
+      order: 'relevance',
+    })
+    if (searched.items?.length) return searched
+  }
+
+  return emptySearch()
+}
+
+/**
+ * Videos uploaded by this channel (channelId), not a generic name search.
+ * Prefers the channel uploads playlist, then search?channelId=.
+ */
+export async function getChannelVideos(
+  channelId,
+  maxResults = 32,
+  { pageToken = '' } = {}
+) {
+  if (!channelId) return emptySearch()
+
+  if (String(channelId).startsWith('ch_')) {
+    const { VIDEOS, toSearchItem } = await import('../data/mockCatalog')
+    const items = (VIDEOS || [])
+      .filter((v) => v.channelId === channelId)
+      .map(toSearchItem)
+    return { ...emptySearch(), items: dedupeByVideoId(items) }
+  }
+
+  const channelPayload = await fetchWithYoutubeKeys(
+    (key) =>
+      `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${encodeURIComponent(
+        channelId
+      )}&key=${key}`
+  )
+  const uploadsId =
+    channelPayload?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads || ''
+
+  if (uploadsId) {
+    const tokenPart = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''
+    const pl = await fetchWithYoutubeKeys(
+      (key) =>
+        `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${encodeURIComponent(
+          uploadsId
+        )}&maxResults=${clampMax(maxResults)}${tokenPart}&key=${key}`
+    )
+    if (pl?.items?.length) {
+      const items = dedupeByVideoId(
+        pl.items
+          .map(mapPlaylistItemToSearchItem)
+          .filter(Boolean)
+          .filter((it) => !it.snippet?.channelId || it.snippet.channelId === channelId)
+      )
+      if (items.length) {
+        return {
+          kind: 'youtube#searchListResponse',
+          items,
+          nextPageToken: pl.nextPageToken || undefined,
+        }
+      }
+    }
+  }
+
+  const searched = await searchVideos('', maxResults, {
+    channelId,
+    pageToken,
+    order: 'date',
+    type: 'video',
+  })
+  return {
+    kind: 'youtube#searchListResponse',
+    items: (searched.items || []).filter(
+      (it) => !it.snippet?.channelId || it.snippet.channelId === channelId
+    ),
+    nextPageToken: searched.nextPageToken,
+  }
+}
+
+function relatedKeywordQuery(title = '') {
+  return String(title)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s+]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2)
+    .slice(0, 6)
+    .join(' ')
+}
+
+/**
+ * Related videos for the watch page: search by the current video's title,
+ * never a generic home dump. Excludes the current video id.
+ */
+export async function getRelatedVideos(
+  { videoId = '', title = '', channelId = '', description = '' } = {},
+  maxResults = 24
+) {
+  const { isShortLikeItem } = await import('./feed')
+  const exclude = new Set([videoId].filter(Boolean))
+  const topic = String(title || '').trim()
+
+  const take = (list) =>
+    dedupeByVideoId(list)
+      .filter((it) => {
+        const id = videoIdOf(it)
+        if (!id || exclude.has(id)) return false
+        if (isShortLikeItem(it)) return false
+        return true
+      })
+      .slice(0, maxResults)
+
+  if (topic) {
+    const primary = await searchVideos(topic, maxResults, { order: 'relevance' })
+    let items = take(primary.items || [])
+    if (items.length >= 8) {
+      return { kind: 'youtube#searchListResponse', items, nextPageToken: primary.nextPageToken }
+    }
+
+    const keys = relatedKeywordQuery(`${topic} ${description || ''}`)
+    if (keys && keys !== topic.toLowerCase()) {
+      const secondary = await searchVideos(keys, maxResults, { order: 'relevance' })
+      items = take([...items, ...(secondary.items || [])])
+    }
+    if (items.length) {
+      return { kind: 'youtube#searchListResponse', items }
+    }
+  }
+
+  if (channelId) {
+    const fromCh = await getChannelVideos(channelId, maxResults)
+    const items = take(fromCh.items || [])
+    if (items.length) return { kind: 'youtube#searchListResponse', items }
+  }
+
+  return emptySearch()
 }
 
 /** Build channelId → logo URL map (batched) */
@@ -271,19 +557,28 @@ export async function getChannelsByIds(ids) {
   return { items: [] }
 }
 
-export async function getMostPopular(maxResults = 50) {
+export async function getMostPopular(
+  maxResults = 50,
+  { pageToken = '', videoCategoryId = '' } = {}
+) {
+  const tokenPart = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''
+  const catPart = videoCategoryId ? `&videoCategoryId=${encodeURIComponent(videoCategoryId)}` : ''
   const yt = await fetchWithYoutubeKeys(
     (key) =>
-      `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&chart=mostPopular&regionCode=US&maxResults=${maxResults}&key=${key}`
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&chart=mostPopular&regionCode=US&maxResults=${clampMax(
+        maxResults
+      )}${tokenPart}${catPart}&key=${key}`
   )
   if (yt) return yt
 
-  const django = await fetchDjango('/videos/')
-  if (django && Array.isArray(django.results || django)) {
-    const list = django.results || django
-    return {
-      kind: 'youtube#videoListResponse',
-      items: list.map(mapDjangoVideoToDetail),
+  if (!pageToken && !videoCategoryId) {
+    const django = await fetchDjango('/videos/')
+    if (django && Array.isArray(django.results || django)) {
+      const list = django.results || django
+      return {
+        kind: 'youtube#videoListResponse',
+        items: list.map(mapDjangoVideoToDetail),
+      }
     }
   }
 

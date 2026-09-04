@@ -1,10 +1,11 @@
 import { useOutletContext } from 'react-router'
 import { useEffect, useState } from 'react'
-import { getChannelLogoMap } from '../../utils/youtubeApi'
+import { getChannelLogoMap, videoIdOf, dedupeByVideoId } from '../../utils/youtubeApi'
 import Card from '../Home-components/Card'
 
 const AllVideosHome = () => {
-  const { channelVideos = [], channelData } = useOutletContext() || {}
+  const { channelVideos = [], channelData, channelVideosReady = true } =
+    useOutletContext() || {}
   const [logoMap, setLogoMap] = useState({})
 
   useEffect(() => {
@@ -18,7 +19,13 @@ const AllVideosHome = () => {
     logoMap[channelData?.id] ||
     '/favicon.ico'
 
-  if (!channelVideos.length) {
+  if (!channelVideosReady) {
+    return <p className="text-[#AAAAAA] py-8 text-center">Loading videos...</p>
+  }
+
+  const uploads = dedupeByVideoId(channelVideos)
+
+  if (!uploads.length) {
     return <p className="text-[#AAAAAA] py-8 text-center">No videos found for this channel.</p>
   }
 
@@ -26,9 +33,9 @@ const AllVideosHome = () => {
     <div className="text-white py-4">
       <h2 className="font-extrabold text-lg my-3">Uploads</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {channelVideos.map((item) => (
+        {uploads.map((item) => (
           <Card
-            key={item.id?.videoId || item.etag}
+            key={videoIdOf(item) || item.etag}
             item={item}
             channelLogo={logoMap[item.snippet?.channelId] || logo}
           />

@@ -290,13 +290,9 @@ const MATCHED_VIDEOS = [
   { videoId: '3EMtTkZvJVA', title: 'SQL Tutorial - Full Database Course for Beginners', channelTitle: 'freeCodeCamp.org', categories: ['Programming', 'Data Science', 'Tutorials'] },
   { videoId: 'Z1RJmh_OqeA', title: 'Flask Tutorial - Python Web Development', channelTitle: 'freeCodeCamp.org', categories: ['Programming', 'Tutorials'] },
 
-  { videoId: 'aqz-KE-bpKQ', title: 'Big Buck Bunny 60fps 4K - Blender Open Movie', channelTitle: 'Blender', categories: ['Movies', 'Entertainment', 'Trending'] },
-  { videoId: 'eRsGyueVLvQ', title: 'Sintel - Third Open Movie by Blender Foundation', channelTitle: 'Blender', categories: ['Movies', 'Entertainment'] },
-  { videoId: 'LXb3EKWsInQ', title: 'COSTA RICA IN 4K 60fps HDR (ULTRA HD)', channelTitle: 'Jacob + Katie Schwarz', categories: ['Travel', 'Documentary', 'Trending'] },
+  { videoId: 'LXb3EKWsInQ', title: 'COSTA RICA IN 4K 60fps HDR (ULTRA HD)', channelTitle: 'Jacob + Katie Schwarz', categories: ['Travel', 'Documentary', 'Trending', 'Technology'] },
   { videoId: 'sGPrA0aG0y0', title: 'Earth - Our Home in 4K', channelTitle: 'Amazing Nature', categories: ['Documentary', 'Science', 'Travel'] },
-  { videoId: 'ScMzIvxBSi4', title: 'MARSHALL - Official Trailer', channelTitle: 'Open Road Films', categories: ['Movies', 'Entertainment'] },
-  { videoId: 'tgbNymZ7vqY', title: 'Video placeholder for demo players', channelTitle: 'YouTube', categories: ['Technology', 'Tutorials'] },
-  { videoId: 'ysz5S6PUM-U', title: 'YouTube Video Player Demo', channelTitle: 'YouTube', categories: ['Technology'] },
+  { videoId: 'aqz-KE-bpKQ', title: 'Big Buck Bunny 60fps 4K - Blender Open Movie', channelTitle: 'Blender', categories: ['Movies', 'Entertainment', 'Trending', 'Technology'] },
   { videoId: 'BaW_jenozKc', title: 'Me at the zoo', channelTitle: 'jawed', categories: ['Trending', 'Recently Uploaded', 'Entertainment'] },
   { videoId: 'jNQXAC9IVRw', title: 'Me at the zoo (First YouTube Video)', channelTitle: 'jawed', categories: ['History', 'Trending', 'Recently Uploaded'] },
 
@@ -306,7 +302,6 @@ const MATCHED_VIDEOS = [
   { videoId: 'UceaB4D0jpo', title: 'Post Malone - Congratulations ft. Quavo', channelTitle: 'Post Malone', categories: ['Music'] },
   { videoId: '3tmd-ClpJxA', title: 'Sia - Chandelier (Official Video)', channelTitle: 'Sia', categories: ['Music', 'Entertainment'] },
   { videoId: 'RBumgq5yVrA', title: 'Passenger | Let Her Go (Official Video)', channelTitle: 'Passenger', categories: ['Music'] },
-  { videoId: 'V-_O7nl0Ii0', title: 'Gotye - Somebody That I Used To Know (feat. Kimbra)', channelTitle: 'Gotye', categories: ['Music'] },
   { videoId: 'Zi_XLOBDo_Y', title: 'The Weeknd - The Hills', channelTitle: 'The Weeknd', categories: ['Music'] },
   { videoId: 'lTTajzrSkCw', title: 'Maroon 5 - Sugar (Official Music Video)', channelTitle: 'Maroon 5', categories: ['Music', 'Entertainment'] },
   { videoId: 'E7wq4O6DVes', title: 'Coldplay - Hymn For The Weekend (Official Video)', channelTitle: 'Coldplay', categories: ['Music'] },
@@ -544,7 +539,8 @@ export function getVideosByCategory(category = 'All', page = 0, pageSize = 24) {
 
 export function searchCatalog(query = '', category = 'All') {
   const q = query.trim().toLowerCase()
-  let list = [...VIDEOS, ...SHORTS.filter((s) => !q)]
+  const tokens = q.split(/\s+/).filter((t) => t.length > 1)
+  let list = [...VIDEOS]
   if (category && category !== 'All') {
     list = VIDEOS.filter(
       (v) =>
@@ -553,15 +549,20 @@ export function searchCatalog(query = '', category = 'All') {
     )
   }
   if (q) {
-    list = [...VIDEOS, ...SHORTS].filter(
-      (v) =>
-        v.title.toLowerCase().includes(q) ||
-        v.channelTitle.toLowerCase().includes(q) ||
-        v.category.toLowerCase().includes(q) ||
-        v.description.toLowerCase().includes(q)
-    )
+    list = VIDEOS.filter((v) => {
+      const hay = `${v.title} ${v.channelTitle} ${v.category}`.toLowerCase()
+      if (hay.includes(q)) return true
+      return tokens.length > 0 && tokens.every((t) => hay.includes(t))
+    })
   }
-  return { items: list.map(toSearchItem), total: list.length }
+  const seen = new Set()
+  const unique = []
+  for (const v of list) {
+    if (seen.has(v.videoId)) continue
+    seen.add(v.videoId)
+    unique.push(v)
+  }
+  return { items: unique.map(toSearchItem), total: unique.length }
 }
 
 export function getCatalogVideo(videoId) {

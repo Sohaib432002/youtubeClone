@@ -2,7 +2,7 @@ import { useContext, useEffect, useState } from 'react'
 import { Outlet, useParams } from 'react-router'
 import { ThemeContext } from '../Hooks/ThemeContext'
 import { useSubscriptions } from '../Hooks/SubscriptionsContext'
-import { getChannelsByIds, searchVideos } from '../utils/youtubeApi'
+import { getChannelsByIds, getChannelVideos, videoIdOf, dedupeByVideoId } from '../utils/youtubeApi'
 import { CHANNELS, VIDEOS, toSearchItem } from '../data/mockCatalog'
 import ChannelBanner from './ChannelDetails-Components/ChannelBanner'
 import ChannelIntro from './ChannelDetails-Components/ChannelIntro'
@@ -38,7 +38,9 @@ const ChannelDetails = () => {
 
       const local = CHANNELS.find((c) => c.id === id)
       if (local) {
-        const vids = VIDEOS.filter((v) => v.channelId === local.id).map(toSearchItem)
+        const vids = dedupeByVideoId(
+          VIDEOS.filter((v) => v.channelId === local.id).map(toSearchItem)
+        )
         const baseSubs = local.subscribers
         ensureChannelCount(local.id, baseSubs)
         const fake = {
@@ -91,14 +93,15 @@ const ChannelDetails = () => {
               ),
             },
           })
-          const title = ch.snippet?.title || ''
-          const videos = await searchVideos(title, 24)
-          // Prefer videos that actually belong to this channel id
-          const filtered = (videos?.items || []).filter(
-            (v) => !v.snippet?.channelId || v.snippet.channelId === id
+          const videos = await getChannelVideos(id, 32)
+          const filtered = dedupeByVideoId(
+            (videos?.items || []).filter((v) => {
+              const belongs = !v.snippet?.channelId || v.snippet.channelId === id
+              return belongs && videoIdOf(v)
+            })
           )
           if (!cancelled) {
-            setChannelVideos(filtered.length ? filtered : videos?.items || [])
+            setChannelVideos(filtered)
           }
         } else {
           setChannelData(null)
@@ -174,7 +177,7 @@ const ChannelDetails = () => {
       {bannerExternalUrl ? <ChannelBanner bannerExternalUrl={bannerExternalUrl} /> : null}
       <ChannelIntro ChannelPic={ChannelPic} channelData={channelData} />
       <OptionsSelection channelId={channelId} />
-      <Outlet context={{ channelData, channelVideos }} />
+      <Outlet context={{ channelData, channelVideos, channelVideosReady: !loading }} />
     </div>
   )
 }

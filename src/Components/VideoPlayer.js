@@ -2,20 +2,8 @@ import { useContext, useEffect, useMemo, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { ThemeContext } from '../Hooks/ThemeContext'
 import { useWatchHistory } from '../Hooks/HistoryContext'
-import {
-  getVideoComments,
-  getVideoDetails,
-  searchVideos,
-} from '../utils/youtubeApi'
-import {
-  extractKeywords,
-  getCatalogVideo,
-  getRelated,
-  isShortSearchItem,
-  toSearchItem,
-} from '../data/mockCatalog'
-import { inferCategoryFromText, scoreCategoryMatch } from '../utils/categoryMatch'
-import { scoreAgainstTopic } from '../utils/feed'
+import { getVideoComments, getVideoDetails, getRelatedVideos } from '../utils/youtubeApi'
+import { getCatalogVideo, getRelated, isShortSearchItem, toSearchItem } from '../data/mockCatalog'
 import Comments from './PlayerComponent/Comments'
 import Player from './PlayerComponent/Player'
 import RelatedVideos from './PlayerComponent/RelatedVideosList'
@@ -55,14 +43,6 @@ function normalizeRelatedItem(it) {
   }
 }
 
-function buildRelatedQuery(title, category) {
-  const keys = extractKeywords(title).slice(0, 4)
-  if (category && keys.length) return `${category} ${keys.join(' ')}`
-  if (keys.length) return keys.join(' ')
-  if (category) return `${category} videos`
-  return 'tutorial'
-}
-
 const VideoPlayer = () => {
   const location = useLocation()
   const { id, text } = useParams()
@@ -99,6 +79,7 @@ const VideoPlayer = () => {
       setNotFound(false)
       setRelatedLoading(true)
       setRelatedError('')
+      setRelatedData({ items: [] })
       setFetchData(null)
 
       let details = null
@@ -141,12 +122,8 @@ const VideoPlayer = () => {
 
       const catalog = getCatalogVideo(id)
       const snippet = details?.items?.[0]?.snippet
-      const title = snippet?.title || catalog?.title || ''
+      const title = snippet?.title || catalog?.title || text || ''
       const description = snippet?.description || catalog?.description || ''
-      const category =
-        catalog?.category ||
-        inferCategoryFromText(`${title} ${description}`, '') ||
-        ''
 
       if (id) {
         addToHistory({
@@ -186,48 +163,57 @@ const VideoPlayer = () => {
         }
       }
 
-      const relatedLocal = getRelated(id, 24, {
-        title,
-        category,
-        description,
-        channelId: snippet?.channelId || catalog?.channelId,
-      })
-
-      // Seed with scored catalog matches immediately (on-topic only)
-      if (!cancelled) {
-        setRelatedData({ items: relatedLocal })
-        setRelatedLoading(false)
-      }
-
-      const query = buildRelatedQuery(title || text, category)
       try {
-        const related = await searchVideos(query, 24, { videoDuration: 'medium' })
+        const related = await getRelatedVideos(
+          {
+            videoId: id,
+            title,
+            description,
+            channelId: snippet?.channelId || catalog?.channelId,
+          },
+          24
+        )
         if (cancelled) return
-        const topic = `${title} ${category}`
-        const live = (related?.items || [])
-          .map(normalizeRelatedItem)
-          .filter(Boolean)
-          .filter((it) => {
-            const hay = `${it.snippet?.title || ''} ${it.snippet?.description || ''}`
-            if (category && scoreCategoryMatch(hay, category) >= 24) return true
-            return scoreAgainstTopic(it, topic) >= 18
-          })
 
-        // Catalog first — never let weak live results bury relevant items
-        if (live.length || relatedLocal.length) {
-          const ids = new Set(relatedLocal.map((x) => x.id?.videoId))
-          const merged = [
-            ...relatedLocal,
-            ...live.filter((r) => !ids.has(r.id?.videoId)),
-          ].slice(0, 28)
-          setRelatedData({ items: merged })
+        let live = (related?.items || []).map(normalizeRelatedItem).filter(Boolean)
+
+        if (!live.length && catalog) {
+          live = getRelated(id, 24, {
+            title,
+            category: catalog.category,
+            description,
+            channelId: snippet?.channelId || catalog?.channelId,
+          }).map(normalizeRelatedItem).filter(Boolean)
+        }
+
+        if (live.length) {
+          const seen = new Set([id])
+          setRelatedData({
+            items: live.filter((r) => {
+              const vid = r.id?.videoId
+              if (!vid || seen.has(vid)) return false
+              seen.add(vid)
+              return true
+            }),
+          })
         } else {
           setRelatedError('No related videos found for this topic.')
         }
       } catch (_) {
-        if (!cancelled && !relatedLocal.length) {
-          setRelatedError('Could not load related videos.')
+        if (!cancelled) {
+          const relatedLocal = catalog
+            ? getRelated(id, 24, {
+                title,
+                category: catalog.category,
+                description,
+                channelId: snippet?.channelId || catalog?.channelId,
+              })
+            : []
+          if (relatedLocal.length) setRelatedData({ items: relatedLocal })
+          else setRelatedError('Could not load related videos.')
         }
+      } finally {
+        if (!cancelled) setRelatedLoading(false)
       }
     }
 

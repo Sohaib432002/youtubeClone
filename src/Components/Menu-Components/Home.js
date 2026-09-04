@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom'
 import { ThemeContext } from '../../Hooks/ThemeContext'
 import { usePrefs } from '../../Hooks/PrefsContext'
 import { getShortsPage, getVideosByCategory } from '../../data/mockCatalog'
-import { searchVideos, getChannelLogoMap } from '../../utils/youtubeApi'
-import { formatViews } from '../../utils/format'
 import {
-  landscapeThumbnail,
-  matchesHomeCategory,
-  normalizeFeedItem,
-  sortByTopicRelevance,
-} from '../../utils/feed'
+  getHomeVideos,
+  getChannelLogoMap,
+  videoIdOf,
+  dedupeByVideoId,
+} from '../../utils/youtubeApi'
+import { formatViews } from '../../utils/format'
+import { landscapeThumbnail, normalizeFeedItem } from '../../utils/feed'
 import Card from '../Home-components/Card'
 import ShowMoreButton from '../ui/ShowMoreButton'
 
@@ -41,16 +41,6 @@ const Home = () => {
     [prefs.restricted]
   )
 
-  const dedupeByVideoId = useCallback((list) => {
-    const seen = new Set()
-    return list.filter((v) => {
-      const id = v?.id?.videoId || v?.meta?.videoId || v?.catalogId
-      if (!id || seen.has(id)) return false
-      seen.add(id)
-      return true
-    })
-  }, [])
-
   const [items, setItems] = useState([])
   const [logoMap, setLogoMap] = useState({})
   const [shorts, setShorts] = useState([])
@@ -61,6 +51,9 @@ const Home = () => {
   const loadingRef = useRef(false)
   const sentinelRef = useRef(null)
   const shortsRailRef = useRef(null)
+  const pageTokenRef = useRef('')
+  const sourceRef = useRef('live')
+  const categoryRef = useRef(activeCategory)
 
   useEffect(() => {
     setisShowScrollbar(true)
@@ -72,83 +65,63 @@ const Home = () => {
   }, [activeCategory])
 
   useEffect(() => {
+    categoryRef.current = activeCategory
+  }, [activeCategory])
+
+  useEffect(() => {
     let cancelled = false
     const load = async () => {
       setLoading(true)
+      setItems([])
       setPage(0)
+      setHasMore(false)
+      pageTokenRef.current = ''
+      sourceRef.current = 'live'
       window.scrollTo({ top: 0, behavior: 'smooth' })
 
-      const topic = activeCategory === 'All' ? 'recommended' : activeCategory
-      const local = getVideosByCategory(activeCategory, 0, 24)
+      let list = []
 
-      // Catalog is source of truth for category chips (title always matches thumbnail)
-      let list = filterRestricted(
-        local.items.map((it) => normalizeFeedItem(it, activeCategory)).filter(Boolean)
-      )
+      try {
+        const live = await getHomeVideos(activeCategory, 24)
+        if (cancelled) return
+        const mapped = filterRestricted(
+          dedupeByVideoId(
+            (live?.items || [])
+              .map((it) => normalizeFeedItem(it, activeCategory))
+              .filter(Boolean)
+          )
+        )
+        if (mapped.length) {
+          list = mapped
+          sourceRef.current = 'live'
+          pageTokenRef.current = live.nextPageToken || ''
+        }
+      } catch (_) {
+        /* fall through to catalog for this category only */
+      }
 
-      list = dedupeByVideoId(list)
+      if (!list.length) {
+        const local = getVideosByCategory(activeCategory, 0, 24)
+        list = filterRestricted(
+          dedupeByVideoId(
+            local.items.map((it) => normalizeFeedItem(it, activeCategory)).filter(Boolean)
+          )
+        )
+        sourceRef.current = 'catalog'
+        pageTokenRef.current = ''
+        if (!cancelled) setHasMore(Boolean(local.hasMore))
+      } else if (!cancelled) {
+        setHasMore(Boolean(pageTokenRef.current))
+      }
 
       if (!cancelled) {
         setItems(list)
-        setHasMore(local.hasMore || list.length >= 8)
         const localLogos = {}
         list.forEach((v) => {
           if (v.meta?.channelAvatar) localLogos[v.snippet.channelId] = v.meta.channelAvatar
         })
         setLogoMap(localLogos)
         setLoading(false)
-      }
-
-      const liveQuery =
-        activeCategory === 'All'
-          ? 'popular educational videos'
-          : activeCategory === 'Trending'
-            ? 'trending videos today'
-            : activeCategory === 'Recently Uploaded'
-              ? 'new videos this week'
-              : `${activeCategory} ${categoryQuery || ''}`.trim()
-
-      try {
-        const live = await searchVideos(liveQuery, 24, {
-          videoDuration: activeCategory === 'Live' ? 'any' : 'medium',
-        })
-        if (cancelled) return
-
-        const mapped = (live?.items || [])
-          .map((it) => normalizeFeedItem(it, activeCategory))
-          .filter(Boolean)
-          .filter((it) => matchesHomeCategory(it, activeCategory))
-
-        if (mapped.length) {
-          if (activeCategory === 'All' || activeCategory === 'Trending') {
-            const ids = new Set(list.map((m) => m.id.videoId))
-            const liveExtra = sortByTopicRelevance(
-              mapped.filter((m) => !ids.has(m.id.videoId)),
-              topic
-            )
-            list = filterRestricted(dedupeByVideoId([...list, ...liveExtra]))
-          } else {
-            // Category chips: catalog first, then only strongly matching live
-            const catalog = filterRestricted(
-              local.items
-                .map((it) => normalizeFeedItem(it, activeCategory))
-                .filter(Boolean)
-            )
-            const ids = new Set(catalog.map((c) => c.id.videoId))
-            const liveExtra = sortByTopicRelevance(
-              mapped.filter((m) => !ids.has(m.id.videoId)),
-              topic
-            ).filter((m) => matchesHomeCategory(m, activeCategory))
-            list = filterRestricted(dedupeByVideoId([...catalog, ...liveExtra]))
-          }
-
-          if (!cancelled) {
-            setItems(list)
-            setHasMore(local.hasMore || list.length >= 8)
-          }
-        }
-      } catch (_) {
-        /* catalog already shown */
       }
 
       try {
@@ -170,25 +143,46 @@ const Home = () => {
     return () => {
       cancelled = true
     }
-  }, [activeCategory, categoryQuery, filterRestricted, dedupeByVideoId])
+  }, [activeCategory, categoryQuery, filterRestricted])
 
   const loadMore = async () => {
     if (loadingRef.current || !hasMore) return
     loadingRef.current = true
     setLoadingMore(true)
-    const next = page + 1
-    const local = getVideosByCategory(activeCategory, next, 24)
-    setItems((prev) => {
-      const seen = new Set(prev.map((v) => v.id?.videoId || v.catalogId))
-      const more = local.items
-        .map((it) => normalizeFeedItem(it, activeCategory))
-        .filter((v) => v && !seen.has(v.id?.videoId))
-      return [...prev, ...more]
-    })
-    setPage(next)
-    setHasMore(local.hasMore)
-    loadingRef.current = false
-    setLoadingMore(false)
+    const cat = categoryRef.current
+    try {
+      if (sourceRef.current === 'live' && pageTokenRef.current) {
+        const more = await getHomeVideos(cat, 24, { pageToken: pageTokenRef.current })
+        const mapped = filterRestricted(
+          dedupeByVideoId(
+            (more.items || []).map((it) => normalizeFeedItem(it, cat)).filter(Boolean)
+          )
+        )
+        setItems((prev) => {
+          const seen = new Set(prev.map((v) => videoIdOf(v)))
+          return [...prev, ...mapped.filter((v) => !seen.has(videoIdOf(v)))]
+        })
+        pageTokenRef.current = more.nextPageToken || ''
+        setHasMore(Boolean(more.nextPageToken))
+      } else if (sourceRef.current === 'catalog') {
+        const next = page + 1
+        const local = getVideosByCategory(cat, next, 24)
+        setItems((prev) => {
+          const seen = new Set(prev.map((v) => videoIdOf(v) || v.catalogId))
+          const extra = local.items
+            .map((it) => normalizeFeedItem(it, cat))
+            .filter((v) => v && !seen.has(videoIdOf(v)))
+          return [...prev, ...extra]
+        })
+        setPage(next)
+        setHasMore(Boolean(local.hasMore))
+      } else {
+        setHasMore(false)
+      }
+    } finally {
+      loadingRef.current = false
+      setLoadingMore(false)
+    }
   }
 
   useEffect(() => {

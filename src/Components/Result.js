@@ -1,24 +1,41 @@
-import { useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ThemeContext } from '../Hooks/ThemeContext'
 import { searchCatalog } from '../data/mockCatalog'
-import { searchVideos } from '../utils/youtubeApi'
+import { searchVideos, videoIdOf, dedupeByVideoId } from '../utils/youtubeApi'
 import Card from './Home-components/Card'
+import ShowMoreButton from './ui/ShowMoreButton'
 import { formatViews, timeAgo } from '../utils/format'
+
+function safeDecode(value = '') {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
 
 const Result = () => {
   const params = useParams()
-  const query = decodeURIComponent(params.text || '')
-  const { setisShowScrollbar, activeCategory, isShowLeftbar, windowResize } =
-    useContext(ThemeContext)
+  const query = safeDecode(params.text || '').trim()
+  const { setisShowScrollbar, isShowLeftbar, windowResize } = useContext(ThemeContext)
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const [usedFallback, setUsedFallback] = useState(false)
+  const [nextPageToken, setNextPageToken] = useState('')
+  const loadingMoreRef = useRef(false)
+  const queryRef = useRef(query)
+  const tokenRef = useRef('')
 
   useEffect(() => {
     setisShowScrollbar(false)
   }, [setisShowScrollbar])
+
+  useEffect(() => {
+    queryRef.current = query
+  }, [query])
 
   useEffect(() => {
     let cancelled = false
@@ -26,33 +43,43 @@ const Result = () => {
       setLoading(true)
       setError('')
       setUsedFallback(false)
-      const local = searchCatalog(query, activeCategory)
-      let list = local.items
+      setItems([])
+      setNextPageToken('')
+      tokenRef.current = ''
+
+      if (!query) {
+        if (!cancelled) {
+          setItems([])
+          setLoading(false)
+        }
+        return
+      }
+
+      let list = []
       let liveFailed = false
       try {
-        const live = await searchVideos(query || 'videos', 30)
-        if (live?.items?.length) {
-          const ids = new Set(live.items.map((i) => i.id?.videoId))
-          list = [
-            ...live.items.map((it) => ({
-              ...it,
-              meta: { channelAvatar: null, duration: '', views: undefined },
-            })),
-            ...local.items.filter((x) => !ids.has(x.id?.videoId)),
-          ]
-        } else if (!local.items.length) {
-          liveFailed = true
-        }
+        const live = await searchVideos(query, 24, { order: 'relevance' })
+        if (cancelled || queryRef.current !== query) return
+        list = dedupeByVideoId(live?.items || [])
+        tokenRef.current = live?.nextPageToken || ''
+        setNextPageToken(tokenRef.current)
       } catch (_) {
         liveFailed = true
-        if (!local.items.length) {
-          if (!cancelled) setError('Search could not reach YouTube. Showing offline results if any.')
-        } else {
-          if (!cancelled) setUsedFallback(true)
-        }
       }
-      if (!cancelled) {
-        if (liveFailed && local.items.length) setUsedFallback(true)
+
+      if (!list.length) {
+        const local = searchCatalog(query, 'All')
+        list = dedupeByVideoId(local.items || [])
+        if (list.length) {
+          if (!cancelled) setUsedFallback(true)
+        } else if (liveFailed && !cancelled) {
+          setError('Search could not reach YouTube. Try again in a moment.')
+        }
+        tokenRef.current = ''
+        setNextPageToken('')
+      }
+
+      if (!cancelled && queryRef.current === query) {
         setItems(list)
         setLoading(false)
       }
@@ -61,7 +88,31 @@ const Result = () => {
     return () => {
       cancelled = true
     }
-  }, [query, activeCategory])
+  }, [query])
+
+  const loadMore = async () => {
+    if (loadingMoreRef.current || !tokenRef.current || !query) return
+    loadingMoreRef.current = true
+    setLoadingMore(true)
+    const forQuery = query
+    try {
+      const more = await searchVideos(forQuery, 24, {
+        order: 'relevance',
+        pageToken: tokenRef.current,
+      })
+      if (queryRef.current !== forQuery) return
+      const extra = dedupeByVideoId(more?.items || [])
+      setItems((prev) => {
+        const seen = new Set(prev.map((v) => videoIdOf(v)))
+        return [...prev, ...extra.filter((v) => !seen.has(videoIdOf(v)))]
+      })
+      tokenRef.current = more?.nextPageToken || ''
+      setNextPageToken(tokenRef.current)
+    } finally {
+      loadingMoreRef.current = false
+      setLoadingMore(false)
+    }
+  }
 
   const leftPad =
     windowResize < 768 ? 'ml-0' : isShowLeftbar ? 'md:ml-[240px]' : 'md:ml-[72px]'
@@ -70,9 +121,6 @@ const Result = () => {
     <div className={`min-h-screen pt-[100px] pb-24 px-3 sm:px-6 ${leftPad} overflow-x-hidden`}>
       <h1 className="text-white text-base sm:text-lg mb-2 break-words">
         Results for <span className="font-semibold">&quot;{query}&quot;</span>
-        {activeCategory !== 'All' ? (
-          <span className="text-[#aaa] text-sm"> in {activeCategory}</span>
-        ) : null}
       </h1>
       {usedFallback ? (
         <p className="text-xs text-[#aaa] mb-3">Showing catalog results (live search unavailable).</p>
@@ -104,16 +152,22 @@ const Result = () => {
       ) : (
         <div className="flex flex-col gap-4 max-w-5xl">
           <p className="text-xs text-[#aaa]">{items.length} result{items.length === 1 ? '' : 's'}</p>
-          {items.map((item, idx) => (
-            <div key={`${item.id?.videoId || idx}-${idx}`} className="sm:max-w-none">
-              <div className="hidden sm:block">
-                <ResultRow item={item} />
+          {items.map((item, idx) => {
+            const vid = videoIdOf(item)
+            return (
+              <div key={`${vid || idx}-${idx}`} className="sm:max-w-none">
+                <div className="hidden sm:block">
+                  <ResultRow item={item} />
+                </div>
+                <div className="sm:hidden">
+                  <Card item={item} channelLogo={item.meta?.channelAvatar} />
+                </div>
               </div>
-              <div className="sm:hidden">
-                <Card item={item} channelLogo={item.meta?.channelAvatar} />
-              </div>
-            </div>
-          ))}
+            )
+          })}
+          {nextPageToken ? (
+            <ShowMoreButton onClick={loadMore} loading={loadingMore} label="Show more" />
+          ) : null}
         </div>
       )}
     </div>
@@ -121,7 +175,8 @@ const Result = () => {
 }
 
 const ResultRow = ({ item }) => {
-  const videoId = item.id?.videoId
+  const videoId = videoIdOf(item)
+  const channelId = item.snippet?.channelId
   const thumb =
     item.snippet?.thumbnails?.medium?.url ||
     item.snippet?.thumbnails?.high?.url ||
@@ -130,29 +185,37 @@ const ResultRow = ({ item }) => {
   const published = item.snippet?.publishTime || item.snippet?.publishedAt
 
   return (
-    <Link to={`/Video/${videoId}`} className="flex gap-4 group">
-      <div className="relative w-[360px] max-w-[45%] aspect-video rounded-xl overflow-hidden bg-[#272727] flex-shrink-0">
+    <div className="flex gap-4 group">
+      <Link to={`/Video/${videoId}`} className="relative w-[360px] max-w-[45%] aspect-video rounded-xl overflow-hidden bg-[#272727] flex-shrink-0">
         <img src={thumb} alt="" className="w-full h-full object-cover" />
         {item.meta?.duration ? (
           <span className="absolute bottom-1 right-1 bg-black/80 text-xs px-1 rounded text-white">
             {item.meta.duration}
           </span>
         ) : null}
-      </div>
+      </Link>
       <div className="min-w-0 flex-1 text-white py-1">
-        <p className="text-lg font-medium line-clamp-2 group-hover:text-[#f1f1f1]">
-          {item.snippet?.title}
-        </p>
+        <Link to={`/Video/${videoId}`}>
+          <p className="text-lg font-medium line-clamp-2 group-hover:text-[#f1f1f1]">
+            {item.snippet?.title}
+          </p>
+        </Link>
         <p className="text-xs text-[#aaa] mt-1">
           {views != null ? `${formatViews(views)} views` : ''}
           {published ? ` • ${timeAgo(published)}` : ''}
         </p>
-        <p className="text-sm text-[#aaa] mt-2">{item.snippet?.channelTitle}</p>
+        {channelId ? (
+          <Link to={`/channel/${channelId}`} className="text-sm text-[#aaa] mt-2 inline-block hover:text-[#f1f1f1]">
+            {item.snippet?.channelTitle}
+          </Link>
+        ) : (
+          <p className="text-sm text-[#aaa] mt-2">{item.snippet?.channelTitle}</p>
+        )}
         <p className="text-xs text-[#aaa] mt-2 line-clamp-2 hidden md:block">
           {item.snippet?.description}
         </p>
       </div>
-    </Link>
+    </div>
   )
 }
 
