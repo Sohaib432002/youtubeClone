@@ -17,11 +17,11 @@ const Card = ({ item, channelLogo }) => {
   const meta = item?.meta
   if (!videoId || !item?.snippet) return null
 
-  const thumb =
-    (videoId ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : null) ||
-    item.snippet.thumbnails?.medium?.url ||
-    item.snippet.thumbnails?.high?.url ||
-    item.snippet.thumbnails?.default?.url
+  const thumb = videoId
+    ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`
+    : item.snippet.thumbnails?.medium?.url ||
+      item.snippet.thumbnails?.high?.url ||
+      item.snippet.thumbnails?.default?.url
 
   const channelId = item.snippet.channelId
   const logo = channelLogo || meta?.channelAvatar || '/favicon.ico'

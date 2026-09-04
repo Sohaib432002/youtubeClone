@@ -200,6 +200,13 @@ const VideoPlayer = () => {
         const live = (related?.items || [])
           .map(normalizeRelatedItem)
           .filter(Boolean)
+          // Keep only items that share keywords with the current video
+          .filter((it) => {
+            const keys = extractKeywords(title || category)
+            if (!keys.length) return true
+            const hay = `${it.snippet?.title || ''} ${it.snippet?.description || ''}`.toLowerCase()
+            return keys.some((k) => hay.includes(k))
+          })
 
         if (live.length) {
           const ids = new Set(live.map((x) => x.id.videoId))

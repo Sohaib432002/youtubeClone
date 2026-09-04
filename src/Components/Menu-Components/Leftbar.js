@@ -13,9 +13,9 @@ const miniLinks = [
 
 /**
  * Expanded sidebar / mini guide:
- * - Desktop home: fixed 240px, pushes content (via contentOffsetPx)
- * - Desktop watch: 72px mini guide; hamburger opens 240px overlay with backdrop
- * - Mobile/tablet: overlay drawer only when opened
+ * - Desktop home: fixed 240px under navbar — content uses margin (never overlaps player)
+ * - Desktop watch: 72px mini guide; hamburger opens 240px overlay + backdrop
+ * - Mobile/tablet: overlay drawer only when menu is opened
  */
 const Leftbar = () => {
   const {
@@ -38,12 +38,13 @@ const Leftbar = () => {
     return () => window.removeEventListener('keydown', onKey)
   }, [setisShowLeftbar, isDesktopSidebar, isShowLeftbar, watchMode])
 
+  const isOverlayDrawer = !isDesktopSidebar || watchMode
+
   return (
     <>
-      {/* Mini guide — watch pages on desktop (never covers the player) */}
       {showMiniGuide ? (
         <aside
-          className="fixed z-20 top-14 left-0 w-[72px] h-[calc(100vh-56px)] bg-[#0F0F0F] border-r border-[#272727] flex flex-col items-center pt-2 gap-1"
+          className="fixed z-20 top-14 left-0 w-[72px] h-[calc(100vh-56px)] bg-[#0F0F0F] border-r border-[#272727] flex flex-col items-center pt-2 gap-1 pointer-events-auto"
           aria-label="Mini guide"
         >
           {miniLinks.map((item) => (
@@ -66,8 +67,7 @@ const Leftbar = () => {
         </aside>
       ) : null}
 
-      {/* Backdrop only for intentional overlay drawers */}
-      {showExpandedDrawer && (!isDesktopSidebar || watchMode) ? (
+      {showExpandedDrawer && isOverlayDrawer ? (
         <div
           className="fixed inset-0 z-[35] bg-black/50"
           onClick={() => setisShowLeftbar(false)}
@@ -75,21 +75,20 @@ const Leftbar = () => {
         />
       ) : null}
 
-      {/* Full expanded drawer */}
       {showExpandedDrawer ? (
         <aside
-          className={`fixed z-40 bg-[#0F0F0F] h-[calc(100vh-56px)] top-14 left-0 w-[240px] max-w-[85vw] border-r border-[#272727] flex flex-col ${
-            isDesktopSidebar && !watchMode ? 'shadow-none' : 'shadow-2xl'
+          className={`fixed bg-[#0F0F0F] left-0 w-[240px] max-w-[85vw] border-r border-[#272727] flex flex-col ${
+            isOverlayDrawer
+              ? 'z-40 top-0 h-screen shadow-2xl'
+              : 'z-20 top-14 h-[calc(100vh-56px)] shadow-none'
           }`}
         >
-          {!isDesktopSidebar || watchMode ? (
-            <div className="h-14 flex items-center px-2 border-b border-[#272727] flex-shrink-0 -mt-14 bg-[#0F0F0F]">
+          {isOverlayDrawer ? (
+            <div className="h-14 flex items-center px-2 border-b border-[#272727] flex-shrink-0 bg-[#0F0F0F]">
               <Logo setleftBar={toggleLeftbar} leftBar={isShowLeftbar} />
             </div>
           ) : null}
-          <div className={isDesktopSidebar && !watchMode ? 'pt-0' : ''}>
-            <LeftBarContent />
-          </div>
+          <LeftBarContent />
         </aside>
       ) : null}
     </>

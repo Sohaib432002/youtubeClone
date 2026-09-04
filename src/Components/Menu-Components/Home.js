@@ -5,30 +5,17 @@ import { usePrefs } from '../../Hooks/PrefsContext'
 import { getShortsPage, getVideosByCategory } from '../../data/mockCatalog'
 import { searchVideos, getChannelLogoMap } from '../../utils/youtubeApi'
 import { formatViews } from '../../utils/format'
+import {
+  landscapeThumbnail,
+  matchesHomeCategory,
+  normalizeFeedItem,
+  sortByTopicRelevance,
+} from '../../utils/feed'
 import Card from '../Home-components/Card'
 import ShowMoreButton from '../ui/ShowMoreButton'
 import fetchedData from '../../FetchedData'
 
-function isShortLike(item) {
-  const title = (item?.snippet?.title || item?.meta?.title || '').toLowerCase()
-  const desc = (item?.snippet?.description || '').toLowerCase()
-  if (item?.meta?.isShort) return true
-  if (title.includes('#shorts') || title.includes('#short') || title.includes(' shorts')) return true
-  if (desc.includes('#shorts')) return true
-  return false
-}
-
-function fullThumb(item) {
-  const id = item?.id?.videoId || item?.meta?.videoId
-  if (id) return `https://i.ytimg.com/vi/${id}/mqdefault.jpg`
-  return (
-    item?.snippet?.thumbnails?.medium?.url ||
-    item?.snippet?.thumbnails?.high?.url ||
-    item?.snippet?.thumbnails?.default?.url
-  )
-}
-
-/** Long videos shown above Shorts (~2 desktop rows / 3 tablet rows). */
+/** Long videos shown above Shorts (~2 desktop rows). */
 const PRE_SHORTS_COUNT = 6
 
 const Home = () => {
@@ -38,22 +25,27 @@ const Home = () => {
     activeCategory,
     categoryQuery,
     isDesktopSidebar,
+    contentOffsetPx,
+    setWatchMode,
   } = useContext(ThemeContext)
   const { prefs } = usePrefs()
 
-  const filterRestricted = useCallback((list) => {
-    if (prefs.restricted !== 'On') return list
-    const blocked = ['violence', 'adult', 'nsfw', '18+', 'horror']
-    return list.filter((v) => {
-      const t = `${v.snippet?.title || ''} ${v.snippet?.description || ''}`.toLowerCase()
-      return !blocked.some((b) => t.includes(b))
-    })
-  }, [prefs.restricted])
+  const filterRestricted = useCallback(
+    (list) => {
+      if (prefs.restricted !== 'On') return list
+      const blocked = ['violence', 'adult', 'nsfw', '18+', 'horror']
+      return list.filter((v) => {
+        const t = `${v.snippet?.title || ''} ${v.snippet?.description || ''}`.toLowerCase()
+        return !blocked.some((b) => t.includes(b))
+      })
+    },
+    [prefs.restricted]
+  )
 
   const dedupeByVideoId = useCallback((list) => {
     const seen = new Set()
     return list.filter((v) => {
-      const id = v?.id?.videoId || v?.meta?.videoId || v?.videoId || v?.catalogId
+      const id = v?.id?.videoId || v?.meta?.videoId || v?.catalogId
       if (!id || seen.has(id)) return false
       seen.add(id)
       return true
@@ -73,9 +65,9 @@ const Home = () => {
 
   useEffect(() => {
     setisShowScrollbar(true)
-  }, [setisShowScrollbar])
+    setWatchMode(false)
+  }, [setisShowScrollbar, setWatchMode])
 
-  // Shorts rail follows the selected category and never repeats the same clip
   useEffect(() => {
     setShorts(getShortsPage(0, 24, activeCategory).items)
   }, [activeCategory])
@@ -87,36 +79,25 @@ const Home = () => {
       setPage(0)
       window.scrollTo({ top: 0, behavior: 'smooth' })
 
+      const topic = activeCategory === 'All' ? 'recommended' : activeCategory
       const local = getVideosByCategory(activeCategory, 0, 24)
-      let list = filterRestricted(local.items.filter((v) => !isShortLike(v)))
 
-      // FetchedData only seeds the default Home feed — never overrides category chips
+      let list = filterRestricted(
+        local.items.map((it) => normalizeFeedItem(it, activeCategory)).filter(Boolean)
+      )
+
       if (activeCategory === 'All') {
         const original = (fetchedData?.items || [])
-          .map((it) => {
-            const videoId =
-              (typeof it.id === 'string' && it.id) || it.id?.videoId
-            if (!videoId || !it.snippet) return null
-            return {
-              ...it,
-              id: { kind: 'youtube#video', videoId },
-              meta: {
-                videoId,
-                channelAvatar: null,
-                duration: '',
-                views: undefined,
-                verified: false,
-                isShort: false,
-              },
-            }
-          })
-          .filter((it) => it && !isShortLike(it))
+          .map((it) => normalizeFeedItem(it, 'All'))
+          .filter(Boolean)
         if (original.length) {
           const ids = new Set(original.map((m) => m.id.videoId))
-          list = filterRestricted([
-            ...original,
-            ...list.filter((x) => !ids.has(x.id?.videoId)),
-          ])
+          list = filterRestricted(
+            dedupeByVideoId([
+              ...original,
+              ...list.filter((x) => !ids.has(x.id?.videoId)),
+            ])
+          )
         }
       }
 
@@ -133,82 +114,62 @@ const Home = () => {
         setLoading(false)
       }
 
-      // Live search uses the chip's query so Music/Gaming/etc. actually change
       const liveQuery =
         activeCategory === 'All'
-          ? 'popular videos'
+          ? 'popular educational videos'
           : activeCategory === 'Trending'
-            ? 'trending'
-            : categoryQuery || activeCategory
+            ? 'trending videos'
+            : `${categoryQuery || activeCategory} video`
 
       try {
-        const live = await searchVideos(liveQuery, 20, {
+        const live = await searchVideos(liveQuery, 24, {
           videoDuration: activeCategory === 'Live' ? 'any' : 'medium',
         })
         if (cancelled) return
-        if (live?.items?.length) {
-          const mapped = live.items
-            .map((it) => {
-              const videoId =
-                (typeof it.id === 'string' && it.id) ||
-                it.id?.videoId ||
-                it.meta?.videoId
-              if (!videoId || !it.snippet) return null
-              return {
-                ...it,
-                id: { kind: 'youtube#video', videoId },
-                snippet: {
-                  ...it.snippet,
-                  thumbnails: {
-                    ...it.snippet.thumbnails,
-                    medium: { url: fullThumb({ ...it, id: { videoId } }) },
-                    high: { url: fullThumb({ ...it, id: { videoId } }) },
-                  },
-                },
-                meta: {
-                  videoId,
-                  channelAvatar: null,
-                  duration: '',
-                  views: undefined,
-                  verified: false,
-                  isShort: false,
-                  category: activeCategory,
-                },
-              }
-            })
-            .filter((it) => it && !isShortLike(it))
 
-          // Category chips: prefer live matches, then catalog for that category
-          if (activeCategory === 'All') {
-            const ids = new Set(mapped.map((m) => m.id?.videoId))
+        const mapped = (live?.items || [])
+          .map((it) => normalizeFeedItem(it, activeCategory))
+          .filter(Boolean)
+          .filter((it) => matchesHomeCategory(it, activeCategory))
+
+        if (mapped.length) {
+          if (activeCategory === 'All' || activeCategory === 'Trending') {
+            const ids = new Set(mapped.map((m) => m.id.videoId))
             list = filterRestricted(
               dedupeByVideoId([
-                ...mapped,
+                ...sortByTopicRelevance(mapped, topic),
                 ...list.filter((x) => !ids.has(x.id?.videoId)),
               ])
             )
           } else {
-            list = filterRestricted(
-              dedupeByVideoId([
-                ...mapped,
-                ...local.items.filter((v) => !isShortLike(v)),
-              ])
+            // Category chips: catalog first (guaranteed on-topic), then matching live only
+            const catalog = filterRestricted(
+              local.items
+                .map((it) => normalizeFeedItem(it, activeCategory))
+                .filter(Boolean)
             )
+            const ids = new Set(catalog.map((c) => c.id.videoId))
+            const liveExtra = sortByTopicRelevance(
+              mapped.filter((m) => !ids.has(m.id.videoId)),
+              topic
+            )
+            list = filterRestricted(dedupeByVideoId([...catalog, ...liveExtra]))
           }
+
           if (!cancelled) {
             setItems(list)
             setHasMore(local.hasMore || list.length >= 12)
           }
         }
       } catch (_) {
-        /* keep catalog */
+        /* catalog already shown */
       }
 
       try {
         const logos = await getChannelLogoMap(
           list
             .map((v) => v.snippet?.channelId)
-            .filter((id) => id && !String(id).startsWith('ch_'))
+            .filter((cid) => cid && !String(cid).startsWith('ch_'))
         )
         const localLogos = {}
         list.forEach((v) => {
@@ -216,7 +177,7 @@ const Home = () => {
         })
         if (!cancelled) setLogoMap({ ...localLogos, ...logos })
       } catch (_) {
-        /* logos optional */
+        /* optional */
       }
     }
     load()
@@ -233,13 +194,10 @@ const Home = () => {
     const local = getVideosByCategory(activeCategory, next, 24)
     setItems((prev) => {
       const seen = new Set(prev.map((v) => v.id?.videoId || v.catalogId))
-      const merged = [
-        ...prev,
-        ...local.items.filter(
-          (v) => !seen.has(v.id?.videoId || v.catalogId) && !isShortLike(v)
-        ),
-      ]
-      return merged
+      const more = local.items
+        .map((it) => normalizeFeedItem(it, activeCategory))
+        .filter((v) => v && !seen.has(v.id?.videoId))
+      return [...prev, ...more]
     })
     setPage(next)
     setHasMore(local.hasMore)
@@ -262,12 +220,13 @@ const Home = () => {
   }, [hasMore, page, activeCategory])
 
   const leftPad = useMemo(() => {
-    if (isDesktopSidebar) return 'lg:ml-[240px]'
-    if (windowResize >= 768) return 'md:ml-[72px]'
-    return 'ml-0'
-  }, [isDesktopSidebar, windowResize])
+    if (!isDesktopSidebar) {
+      if (windowResize >= 768) return 'md:ml-[72px]'
+      return 'ml-0'
+    }
+    return contentOffsetPx >= 240 ? 'lg:ml-[240px]' : 'lg:ml-[72px]'
+  }, [isDesktopSidebar, windowResize, contentOffsetPx])
 
-  // ~2 rows on desktop (3-col) / tablet (2-col) before Shorts sits mid-feed
   const topVideos = useMemo(() => items.slice(0, PRE_SHORTS_COUNT), [items])
   const restVideos = useMemo(() => items.slice(PRE_SHORTS_COUNT), [items])
 
@@ -275,23 +234,27 @@ const Home = () => {
     shortsRailRef.current?.scrollBy({ left: dir * 340, behavior: 'smooth' })
   }
 
-  const renderVideoCard = (item, idx) => (
-    <Card
-      key={`${item.id?.videoId || item.catalogId}-${idx}`}
-      item={{
-        ...item,
-        snippet: {
-          ...item.snippet,
-          thumbnails: {
-            ...item.snippet.thumbnails,
-            medium: { url: fullThumb(item) },
-            high: { url: fullThumb(item) },
+  const renderVideoCard = (item, idx) => {
+    const vid = item.id?.videoId || item.meta?.videoId
+    const thumb = landscapeThumbnail(vid)
+    return (
+      <Card
+        key={`${vid}-${idx}`}
+        item={{
+          ...item,
+          snippet: {
+            ...item.snippet,
+            thumbnails: {
+              ...item.snippet.thumbnails,
+              medium: { url: thumb },
+              high: { url: thumb },
+            },
           },
-        },
-      }}
-      channelLogo={logoMap[item.snippet?.channelId] || item.meta?.channelAvatar}
-    />
-  )
+        }}
+        channelLogo={logoMap[item.snippet?.channelId] || item.meta?.channelAvatar}
+      />
+    )
+  }
 
   const ShortsSection = (
     <section
@@ -356,7 +319,9 @@ const Home = () => {
   )
 
   return (
-    <div className={`min-h-screen bg-[#0f0f0f] pt-[100px] pb-20 px-3 sm:px-4 lg:px-8 ${leftPad}`}>
+    <div
+      className={`min-h-screen bg-[#0f0f0f] pt-[100px] pb-20 px-3 sm:px-4 lg:px-8 ${leftPad} transition-[margin] duration-200`}
+    >
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8">
           {Array.from({ length: 9 }).map((_, i) => (
@@ -382,7 +347,13 @@ const Home = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8">
               {topVideos.map((item, idx) => renderVideoCard(item, idx))}
             </div>
-          ) : null}
+          ) : (
+            <div className="rounded-2xl border border-[#272727] bg-[#181818] py-16 text-center mb-8">
+              <i className="fa-solid fa-film text-3xl text-[#555] mb-3"></i>
+              <p className="text-white">No videos in this category yet</p>
+              <p className="text-sm text-[#aaa] mt-1">Try another chip or check back later.</p>
+            </div>
+          )}
 
           {shorts.length ? ShortsSection : null}
 
