@@ -2,11 +2,17 @@ import { useContext, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../Hooks/AuthContext'
 import { useWatchHistory } from '../../Hooks/HistoryContext'
+import { useLikes } from '../../Hooks/LikesContext'
+import { useWatchLater } from '../../Hooks/WatchLaterContext'
+import { usePlaylists } from '../../Hooks/PlaylistsContext'
 import { ThemeContext } from '../../Hooks/ThemeContext'
 
 const Self = () => {
   const { user, isSignedIn, openSignIn, signOut } = useAuth()
   const { history } = useWatchHistory()
+  const { likedVideos } = useLikes()
+  const { watchLater } = useWatchLater()
+  const { playlists } = usePlaylists()
   const { isShowLeftbar, windowResize, setisShowScrollbar } = useContext(ThemeContext)
 
   useEffect(() => {
@@ -14,10 +20,49 @@ const Self = () => {
   }, [setisShowScrollbar])
 
   const leftPad =
-    isShowLeftbar && windowResize >= 1200 ? 'md:ml-[15rem]' : 'md:ml-[5rem]'
+    windowResize < 768 ? 'ml-0' : isShowLeftbar ? 'md:ml-[240px]' : 'md:ml-[72px]'
+
+  const links = [
+    {
+      to: '/history',
+      icon: 'fa-solid fa-clock-rotate-left',
+      label: 'History',
+      meta: `${history.length} videos`,
+    },
+    {
+      to: '/playlists',
+      icon: 'fa-solid fa-list',
+      label: 'Playlists',
+      meta: isSignedIn ? `${playlists.length} playlists` : 'Sign in to manage',
+    },
+    {
+      to: '/watch-later',
+      icon: 'fa-regular fa-clock',
+      label: 'Watch later',
+      meta: isSignedIn ? `${watchLater.length} videos` : 'Sign in to save',
+    },
+    {
+      to: '/liked',
+      icon: 'fa-regular fa-thumbs-up',
+      label: 'Liked videos',
+      meta: isSignedIn ? `${likedVideos.length} videos` : 'Sign in to like',
+    },
+    {
+      to: '/Subscriptions',
+      icon: 'fa-solid fa-bell',
+      label: 'Subscriptions',
+      meta: '',
+    },
+    {
+      to: '/downloads',
+      icon: 'fa-solid fa-download',
+      label: 'Downloads',
+      meta: '',
+    },
+  ]
 
   return (
-    <div className={`min-h-screen pt-[100px] pb-20 px-4 ${leftPad} text-white max-w-3xl`}>
+    <div className={`min-h-screen pt-[100px] pb-24 px-4 ${leftPad} text-white max-w-3xl`}>
       <h1 className="text-2xl font-semibold mb-6">You</h1>
 
       {isSignedIn ? (
@@ -38,8 +83,10 @@ const Self = () => {
       ) : (
         <div className="mb-8 p-4 rounded-xl bg-[#212121] flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
           <div>
-            <p className="font-medium">Sign in to get the most out of YouTube</p>
-            <p className="text-sm text-[#AAAAAA] mt-1">Save history and personalize your feed.</p>
+            <p className="font-medium">Sign in to get the most out of YouTubeClone</p>
+            <p className="text-sm text-[#AAAAAA] mt-1">
+              Save history, likes, playlists, and Watch later.
+            </p>
           </div>
           <button
             type="button"
@@ -53,24 +100,19 @@ const Self = () => {
       )}
 
       <div className="flex flex-col gap-1">
-        <Link
-          to="/history"
-          className="flex items-center gap-4 p-3 rounded-lg hover:bg-[#272727]"
-        >
-          <i className="fa-solid fa-clock-rotate-left w-6 text-center"></i>
-          <div>
-            <p>History</p>
-            <p className="text-xs text-[#AAAAAA]">{history.length} videos</p>
-          </div>
-        </Link>
-        <Link to="/Subscriptions" className="flex items-center gap-4 p-3 rounded-lg hover:bg-[#272727]">
-          <i className="fa-solid fa-bell w-6 text-center"></i>
-          <p>Subscriptions</p>
-        </Link>
-        <Link to="/shorts" className="flex items-center gap-4 p-3 rounded-lg hover:bg-[#272727]">
-          <i className="fa-solid fa-film w-6 text-center"></i>
-          <p>Your Shorts</p>
-        </Link>
+        {links.map((item) => (
+          <Link
+            key={item.to + item.label}
+            to={item.to}
+            className="flex items-center gap-4 p-3 rounded-lg hover:bg-[#272727]"
+          >
+            <i className={`${item.icon} w-6 text-center`}></i>
+            <div>
+              <p>{item.label}</p>
+              {item.meta ? <p className="text-xs text-[#AAAAAA]">{item.meta}</p> : null}
+            </div>
+          </Link>
+        ))}
       </div>
     </div>
   )

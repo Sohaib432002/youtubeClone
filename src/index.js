@@ -25,10 +25,15 @@ import { HistoryProvider } from './Hooks/HistoryContext'
 import { PrefsProvider } from './Hooks/PrefsContext'
 import { LikesProvider } from './Hooks/LikesContext'
 import { SubscriptionsProvider } from './Hooks/SubscriptionsContext'
+import { WatchLaterProvider } from './Hooks/WatchLaterContext'
+import { PlaylistsProvider } from './Hooks/PlaylistsContext'
 import './index.css'
 import './App.css'
 import PostDetails from './Components/ChannelDetails-Components/PostDetails'
 import PostComments from './Components/ChannelDetails-Components/PostComments'
+import WatchLater from './Components/Menu-Components/WatchLater'
+import PlaylistsPage from './Components/Menu-Components/PlaylistsPage'
+import PlaylistDetail from './Components/Menu-Components/PlaylistDetail'
 
 const channelChildren = [
   { path: '', element: <AllVidoesHome /> },
@@ -55,6 +60,9 @@ const router = createBrowserRouter([
           { path: '/history', element: <History /> },
           { path: '/downloads', element: <Downloads /> },
           { path: '/liked', element: <LikedVideos /> },
+          { path: '/watch-later', element: <WatchLater /> },
+          { path: '/playlists', element: <PlaylistsPage /> },
+          { path: '/playlist/:playlistId', element: <PlaylistDetail /> },
           { path: '/settings', element: <Settings /> },
           { path: '/result/:text', element: <Result /> },
           {
@@ -84,11 +92,15 @@ ReactDOM.createRoot(root).render(
       <PrefsProvider>
         <LikesProvider>
           <SubscriptionsProvider>
-            <CallContextFun>
-              <ThemeProvider>
-                <RouterProvider router={router} />
-              </ThemeProvider>
-            </CallContextFun>
+            <WatchLaterProvider>
+              <PlaylistsProvider>
+                <CallContextFun>
+                  <ThemeProvider>
+                    <RouterProvider router={router} />
+                  </ThemeProvider>
+                </CallContextFun>
+              </PlaylistsProvider>
+            </WatchLaterProvider>
           </SubscriptionsProvider>
         </LikesProvider>
       </PrefsProvider>

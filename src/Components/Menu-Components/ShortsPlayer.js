@@ -10,7 +10,7 @@ const ShortsPlayer = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const { addToHistory } = useWatchHistory()
-  const { isLiked, toggleLike } = useLikes()
+  const { isLiked, toggleLike, getLikeCount, syncLikeBase } = useLikes()
   const containerRef = useRef(null)
   const [active, setActive] = useState(0)
   const [dislikes, setDislikes] = useState({})
@@ -45,6 +45,12 @@ const ShortsPlayer = () => {
       navigate(`/shorts/${current.videoId}`, { replace: true })
     }
   }, [active, ordered, addToHistory, id, navigate])
+
+  useEffect(() => {
+    ordered.forEach((s) => {
+      if (s.videoId != null && s.likes != null) syncLikeBase(s.videoId, s.likes)
+    })
+  }, [ordered, syncLikeBase])
 
   useEffect(() => {
     const root = containerRef.current
@@ -147,6 +153,7 @@ const ShortsPlayer = () => {
                       views: s.views,
                       duration: s.duration,
                       publishedAt: s.publishedAt,
+                      likeCount: s.likes,
                     })
                     setDislikes((p) => ({ ...p, [s.id]: false }))
                   }}
@@ -160,7 +167,7 @@ const ShortsPlayer = () => {
                     ></i>
                   </span>
                   <span className="text-xs mt-1">
-                    {formatViews(s.likes + (isLiked(s.videoId) ? 1 : 0))}
+                    {formatViews(getLikeCount(s.videoId, s.likes))}
                   </span>
                 </button>
                 <button

@@ -1,69 +1,45 @@
-import { useContext, useEffect, useState } from 'react'
+import { useContext, useMemo } from 'react'
 import { ThemeContext } from '../../Hooks/ThemeContext'
-import { getChannelsByIds } from '../../utils/youtubeApi'
-import Scrollbar from '../Navbar-Components/ScrollBar'
 import RelatedVideosShel from './subComponents/RelatedVideosShel'
 import RelatedVidosCard from './subComponents/RelatedVidosCard'
 
 const RelatedVideos = ({ randomVideosData, setupdate }) => {
   const { windowResize } = useContext(ThemeContext)
+  const isSidebar = windowResize >= 1170
 
-  const idslistChaneels =
-    randomVideosData?.items?.map((item) => item?.snippet?.channelId).filter(Boolean) || []
-
-  const channelIdsKey = idslistChaneels.join(',')
-  const [RelatedVidoesChannelsData, setRelatedVideosChannelsData] = useState({ items: [] })
-
-  useEffect(() => {
-    if (!channelIdsKey) return
-    let cancelled = false
-    getChannelsByIds(channelIdsKey.split(',')).then((data) => {
-      if (!cancelled) setRelatedVideosChannelsData(data || { items: [] })
+  const videos = useMemo(() => {
+    const list = randomVideosData?.items || []
+    return list.filter((item) => {
+      const id = item?.id?.videoId || (typeof item?.id === 'string' ? item.id : null)
+      return id && item?.snippet
     })
-    return () => {
-      cancelled = true
-    }
-  }, [channelIdsKey])
+  }, [randomVideosData])
+
+  if (!videos.length) {
+    return <RelatedVideosShel windowResize={windowResize} />
+  }
 
   return (
-    <>
-      {randomVideosData?.items?.length === 0 || idslistChaneels.length === 0 ? (
-        <RelatedVideosShel windowResize={windowResize} />
-      ) : (
-        <div className={`${windowResize >= 1170 ? 'max-w-[370px]' : ''} mx-3 grid`}>
-          {/* Scrollbar */}
-          <div className="mx-6 overflow-hidden">
-            <Scrollbar OptionsList={[1, 2, 3, 4, 5, 6, 7, 8]} />
-          </div>
-
-          {/* Videos + Channels */}
-          <div
-            className={`${windowResize < 1170 ? 'grid-cols-3' : ''} ${
-              windowResize >= 1170 ? 'flex flex-col justify-center' : 'grid gap-3'
-            } ${windowResize <= 770 ? 'grid-cols-2' : ''} ${
-              windowResize <= 570 ? 'grid-cols-1' : ''
-            }`}
-          >
-            {[...(randomVideosData?.items || []), ...(RelatedVidoesChannelsData?.items || [])].map(
-              (item) => {
-                const isVideo = item.id?.videoId !== undefined
-                const isChannel = item.kind?.includes('youtube#channel')
-
-                return (
-                  <RelatedVidosCard
-                    key={item.id?.videoId || item.id}
-                    setupdate={setupdate}
-                    item={item}
-                    windowResize={windowResize}
-                    type={isVideo ? 'video' : isChannel ? 'channel' : 'unknown'}
-                  />
-                )
-              }
-            )}
-          </div>
-        </div>
-      )}
-    </>
+    <div
+      className={`w-full min-w-0 ${
+        isSidebar ? 'max-w-[402px] px-1' : 'px-3 sm:px-4'
+      }`}
+    >
+      <h3 className={`text-white font-semibold mb-2 ${isSidebar ? 'text-sm px-1' : 'text-base'}`}>
+        Related videos
+      </h3>
+      {/* Always a single-column flex list — one video per full row */}
+      <div className="flex flex-col w-full gap-1">
+        {videos.map((item, idx) => (
+          <RelatedVidosCard
+            key={`${item.id?.videoId || item.id}-${idx}`}
+            setupdate={setupdate}
+            item={item}
+            compact={isSidebar}
+          />
+        ))}
+      </div>
+    </div>
   )
 }
 

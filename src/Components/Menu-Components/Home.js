@@ -28,6 +28,9 @@ function fullThumb(item) {
   )
 }
 
+/** Long videos shown above Shorts (~2 desktop rows / 3 tablet rows). */
+const PRE_SHORTS_COUNT = 6
+
 const Home = () => {
   const { windowResize, setisShowScrollbar, activeCategory, isDesktopSidebar } =
     useContext(ThemeContext)
@@ -227,9 +230,93 @@ const Home = () => {
     return 'ml-0'
   }, [isDesktopSidebar, windowResize])
 
+  // ~2 rows on desktop (3-col) / tablet (2-col) before Shorts sits mid-feed
+  const topVideos = useMemo(() => items.slice(0, PRE_SHORTS_COUNT), [items])
+  const restVideos = useMemo(() => items.slice(PRE_SHORTS_COUNT), [items])
+
   const scrollShorts = (dir) => {
-    shortsRailRef.current?.scrollBy({ left: dir * 280, behavior: 'smooth' })
+    shortsRailRef.current?.scrollBy({ left: dir * 340, behavior: 'smooth' })
   }
+
+  const renderVideoCard = (item, idx) => (
+    <Card
+      key={`${item.id?.videoId || item.catalogId}-${idx}`}
+      item={{
+        ...item,
+        snippet: {
+          ...item.snippet,
+          thumbnails: {
+            ...item.snippet.thumbnails,
+            medium: { url: fullThumb(item) },
+            high: { url: fullThumb(item) },
+          },
+        },
+      }}
+      channelLogo={logoMap[item.snippet?.channelId] || item.meta?.channelAvatar}
+    />
+  )
+
+  const ShortsSection = (
+    <section
+      className="my-10 sm:my-12 py-6 sm:py-8 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 border-y border-[#222]"
+      aria-label="Shorts"
+    >
+      <div className="flex items-center justify-between mb-4 sm:mb-5">
+        <div className="flex items-center gap-2.5 text-white">
+          <i className="fa-solid fa-bolt text-red-500 text-lg sm:text-xl"></i>
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight">Shorts</h2>
+        </div>
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <button
+            type="button"
+            onClick={() => scrollShorts(-1)}
+            className="hidden sm:flex w-9 h-9 items-center justify-center rounded-full border border-[#3f3f3f] text-white hover:bg-[#272727]"
+            aria-label="Scroll shorts left"
+          >
+            <i className="fa-solid fa-chevron-left text-xs"></i>
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollShorts(1)}
+            className="hidden sm:flex w-9 h-9 items-center justify-center rounded-full border border-[#3f3f3f] text-white hover:bg-[#272727]"
+            aria-label="Scroll shorts right"
+          >
+            <i className="fa-solid fa-chevron-right text-xs"></i>
+          </button>
+          <Link to="/shorts" className="text-sm text-[#3ea6ff] hover:underline ml-1 px-1">
+            View all
+          </Link>
+        </div>
+      </div>
+      <div
+        ref={shortsRailRef}
+        className="flex gap-3 sm:gap-4 md:gap-5 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory"
+      >
+        {shorts.map((s) => (
+          <Link
+            key={s.id}
+            to={`/shorts/${s.videoId}`}
+            className="snap-start flex-shrink-0 w-[min(72vw,260px)] sm:w-[250px] md:w-[270px] lg:w-[290px] group"
+          >
+            <div className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-[#272727] shadow-md ring-1 ring-white/10">
+              <img
+                src={`https://i.ytimg.com/vi/${s.videoId}/mqdefault.jpg`}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-300"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-3.5">
+                <p className="text-white text-sm sm:text-[15px] font-medium line-clamp-2 leading-snug">
+                  {s.title}
+                </p>
+                <p className="text-[#ccc] text-xs mt-1.5">{formatViews(s.views)} views</p>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  )
 
   return (
     <div className={`min-h-screen bg-[#0f0f0f] pt-[100px] pb-20 px-3 sm:px-4 lg:px-8 ${leftPad}`}>
@@ -250,87 +337,23 @@ const Home = () => {
         </div>
       ) : (
         <>
-          <section className="mb-12">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2.5 text-white">
-                <i className="fa-solid fa-bolt text-red-500 text-xl"></i>
-                <h2 className="text-xl font-bold tracking-tight">Shorts</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => scrollShorts(-1)}
-                  className="w-9 h-9 rounded-full border border-[#3f3f3f] text-white hover:bg-[#272727]"
-                  aria-label="Scroll shorts left"
-                >
-                  <i className="fa-solid fa-chevron-left text-xs"></i>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => scrollShorts(1)}
-                  className="w-9 h-9 rounded-full border border-[#3f3f3f] text-white hover:bg-[#272727]"
-                  aria-label="Scroll shorts right"
-                >
-                  <i className="fa-solid fa-chevron-right text-xs"></i>
-                </button>
-                <Link to="/shorts" className="text-sm text-[#3ea6ff] hover:underline ml-1">
-                  View all
-                </Link>
-              </div>
-            </div>
-            <div
-              ref={shortsRailRef}
-              className="flex gap-4 sm:gap-5 overflow-x-auto scrollbar-hide pb-3 snap-x snap-mandatory"
-            >
-              {shorts.map((s) => (
-                <Link
-                  key={s.id}
-                  to={`/shorts/${s.videoId}`}
-                  className="snap-start flex-shrink-0 w-[200px] sm:w-[220px] md:w-[240px] group"
-                >
-                  <div className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-[#272727] shadow-sm ring-1 ring-white/5">
-                    <img
-                      src={`https://i.ytimg.com/vi/${s.videoId}/mqdefault.jpg`}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-white text-sm font-medium line-clamp-2 leading-snug">
-                        {s.title}
-                      </p>
-                      <p className="text-[#ccc] text-xs mt-1.5">
-                        {formatViews(s.views)} views
-                      </p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-
           <h2 className="text-white text-lg font-semibold mb-5">Recommended</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8">
-            {items.map((item, idx) => (
-              <Card
-                key={`${item.id?.videoId || item.catalogId}-${idx}`}
-                item={{
-                  ...item,
-                  snippet: {
-                    ...item.snippet,
-                    thumbnails: {
-                      ...item.snippet.thumbnails,
-                      medium: { url: fullThumb(item) },
-                      high: { url: fullThumb(item) },
-                    },
-                  },
-                }}
-                channelLogo={
-                  logoMap[item.snippet?.channelId] || item.meta?.channelAvatar
-                }
-              />
-            ))}
-          </div>
+
+          {topVideos.length ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8">
+              {topVideos.map((item, idx) => renderVideoCard(item, idx))}
+            </div>
+          ) : null}
+
+          {shorts.length ? ShortsSection : null}
+
+          {restVideos.length ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8 mt-2">
+              {restVideos.map((item, idx) =>
+                renderVideoCard(item, idx + PRE_SHORTS_COUNT)
+              )}
+            </div>
+          ) : null}
 
           <div ref={sentinelRef} className="mt-2">
             {hasMore ? (

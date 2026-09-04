@@ -1,9 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatViews, timeAgo } from '../../utils/format'
+import { useWatchLater } from '../../Hooks/WatchLaterContext'
+import SavePlaylistModal from '../ui/SavePlaylistModal'
 
 const Card = ({ item, channelLogo }) => {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [saveOpen, setSaveOpen] = useState(false)
+  const [toast, setToast] = useState('')
+  const { addToWatchLater, isInWatchLater, removeFromWatchLater } = useWatchLater()
+
   const videoId =
     item?.id?.videoId ||
     (typeof item?.id === 'string' ? item.id : null) ||
@@ -22,6 +28,49 @@ const Card = ({ item, channelLogo }) => {
   const views = meta?.views ?? item.statistics?.viewCount
   const duration = meta?.duration || item.contentDetails?.duration || ''
   const published = item.snippet.publishTime || item.snippet.publishedAt
+
+  const videoEntry = {
+    videoId,
+    title: item.snippet.title,
+    thumbnail: thumb,
+    channelTitle: item.snippet.channelTitle,
+    channelId,
+    channelLogo: logo,
+    views,
+    duration,
+    publishedAt: published,
+  }
+
+  const flash = (msg) => {
+    setToast(msg)
+    setTimeout(() => setToast(''), 2000)
+  }
+
+  const menuActions = [
+    {
+      label: isInWatchLater(videoId) ? 'Remove from Watch later' : 'Save to Watch later',
+      run: () => {
+        if (isInWatchLater(videoId)) {
+          removeFromWatchLater(videoId)
+          flash('Removed from Watch later')
+        } else {
+          const r = addToWatchLater(videoEntry)
+          if (r.ok) flash(r.already ? 'Already in Watch later' : 'Saved to Watch later')
+        }
+      },
+    },
+    {
+      label: 'Save to playlist',
+      run: () => setSaveOpen(true),
+    },
+    {
+      label: 'Share',
+      run: () => {
+        navigator.clipboard?.writeText(`${window.location.origin}/Video/${videoId}`)
+        flash('Link copied')
+      },
+    },
+  ]
 
   return (
     <div className="group relative flex flex-col w-full min-w-0 text-[#f1f1f1]">
@@ -58,7 +107,8 @@ const Card = ({ item, channelLogo }) => {
             </Link>
             <button
               type="button"
-              className="opacity-0 group-hover:opacity-100 h-8 w-8 flex-shrink-0 rounded-full hover:bg-[#272727]"
+              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 h-8 w-8 flex-shrink-0 rounded-full hover:bg-[#272727]"
+              aria-label="More options"
               onClick={(e) => {
                 e.preventDefault()
                 setMenuOpen((v) => !v)
@@ -84,19 +134,42 @@ const Card = ({ item, channelLogo }) => {
       </div>
 
       {menuOpen ? (
-        <div className="absolute top-12 right-0 z-20 w-48 rounded-xl bg-[#282828] shadow-xl overflow-hidden text-sm">
-          {['Add to queue', 'Save to Watch later', 'Share', 'Not interested'].map((label) => (
-            <button
-              key={label}
-              type="button"
-              className="w-full text-left px-4 py-2.5 hover:bg-[#3e3e3e]"
-              onClick={() => setMenuOpen(false)}
-            >
-              {label}
-            </button>
-          ))}
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-20 cursor-default"
+            aria-label="Close menu"
+            onClick={() => setMenuOpen(false)}
+          />
+          <div className="absolute top-12 right-0 z-30 w-52 rounded-xl bg-[#282828] shadow-xl overflow-hidden text-sm border border-[#3f3f3f]">
+            {menuActions.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                className="w-full text-left px-4 py-2.5 hover:bg-[#3e3e3e]"
+                onClick={() => {
+                  action.run()
+                  setMenuOpen(false)
+                }}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {toast ? (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#f1f1f1] text-black text-sm px-4 py-2 rounded-lg shadow-lg">
+          {toast}
         </div>
       ) : null}
+
+      <SavePlaylistModal
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        video={videoEntry}
+      />
     </div>
   )
 }

@@ -1,123 +1,22 @@
-import React from "react";
-import { Link } from "react-router";
-
-const RelatedVideosShel = ({ windowResize }) => {
+/** Skeleton placeholders for related videos — column layout on all sizes */
+const RelatedVideosShel = () => {
   return (
-    <>
-      <div
-        className={`${
-          windowResize >= 1170 ? "max-w-[370px]" : ""
-        }  mx-3 grid grid-col-1`}
-      >
-        <div
-          className={`${windowResize >= 970 ? "grid-cols-3" : "grid-cols-2"}
-          ${windowResize >= 600 ? "grid-cols-2" : "grid-cols-1"}
-          ${
-            windowResize >= 1170
-              ? "flex flex-col  justify-center"
-              : "grid  gap-3"
-          } `}
-        >
-          <Link>
-            <div className={`${windowResize >= 1170 ? "flex" : ""} my-1`}>
-              <div
-                className={`object-contain ${
-                  windowResize >= 1170 ? "" : "my-3"
-                }  rounded-lg overflow-hidden`}
-              >
-                <img
-                  width={`${windowResize >= 1170 ? 150 : "100%"}`}
-                  src="../../skelpic.jpg"
-                  className={`${windowResize >= 1170 ? "" : ""}`}
-                  alt="thumbail"
-                />
-              </div>
-              <div className="flex flex-grow flex-col ">
-                <div
-                  className={`${
-                    windowResize >= 1170 ? "flex-grow" : "flex-grow"
-                  } flex flex-col  mx-2`}
-                >
-                  {windowResize >= 1170 ? (
-                    <p className=" h-[2vh] w-[120px] my-2 bg-gray-700"></p>
-                  ) : (
-                    <p className=" h-[2vh]  w-[120px] bg-gray-700"></p>
-                  )}
-
-                  <p className="w-[50px] h-[2vh] my-0 bg-gray-700"></p>
-                  <p className="w-[10px] h-[2vh] my-1 bg-gray-700"></p>
-                </div>
-              </div>
+    <div className="w-full px-3 sm:px-4 animate-pulse">
+      <div className="h-4 w-32 bg-[#272727] rounded mb-3" />
+      <div className="flex flex-col gap-3">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex w-full gap-3">
+            <div className="w-[42%] max-w-[200px] aspect-video rounded-lg bg-[#272727] flex-shrink-0" />
+            <div className="flex-1 space-y-2 py-1">
+              <div className="h-3.5 bg-[#272727] rounded w-11/12" />
+              <div className="h-3 bg-[#272727] rounded w-1/2" />
+              <div className="h-3 bg-[#272727] rounded w-2/5" />
             </div>
-          </Link>
-          <Link>
-            <div className={`${windowResize >= 1170 ? "flex" : ""} my-1`}>
-              <div
-                className={`object-contain ${
-                  windowResize >= 1170 ? "" : "my-3"
-                }  rounded-lg overflow-hidden`}
-              >
-                <img
-                  width={`${windowResize >= 1170 ? 150 : "100%"}`}
-                  src="../../skelpic.jpg"
-                  className={`${windowResize >= 1170 ? "" : ""}`}
-                  alt="thumbail"
-                />
-              </div>
-              <div className="flex flex-grow flex-col ">
-                <div
-                  className={`${
-                    windowResize >= 1170 ? "flex-grow" : "flex-grow"
-                  } flex flex-col  mx-2`}
-                >
-                  {windowResize >= 1170 ? (
-                    <p className=" h-[2vh] w-[120px] my-2 bg-gray-700"></p>
-                  ) : (
-                    <p className=" h-[2vh]  w-[120px] bg-gray-700"></p>
-                  )}
-
-                  <p className="w-[50px] h-[2vh] my-0 bg-gray-700"></p>
-                  <p className="w-[10px] h-[2vh] my-1 bg-gray-700"></p>
-                </div>
-              </div>
-            </div>
-          </Link>
-          <Link>
-            <div className={`${windowResize >= 1170 ? "flex" : ""} my-1`}>
-              <div
-                className={`object-contain ${
-                  windowResize >= 1170 ? "" : "my-3"
-                }  rounded-lg overflow-hidden`}
-              >
-                <img
-                  width={`${windowResize >= 1170 ? 150 : "100%"}`}
-                  src="../../skelpic.jpg"
-                  className={`${windowResize >= 1170 ? "" : ""}`}
-                  alt="thumbail"
-                />
-              </div>
-              <div className="flex flex-grow flex-col ">
-                <div
-                  className={`${
-                    windowResize >= 1170 ? "flex-grow" : "flex-grow"
-                  } flex flex-col  mx-2`}
-                >
-                  {windowResize >= 1170 ? (
-                    <p className=" h-[2vh] w-[120px] my-2 bg-gray-700"></p>
-                  ) : (
-                    <p className=" h-[2vh]  w-[120px] bg-gray-700"></p>
-                  )}
-
-                  <p className="w-[50px] h-[2vh] my-0 bg-gray-700"></p>
-                  <p className="w-[10px] h-[2vh] my-1 bg-gray-700"></p>
-                </div>
-              </div>
-            </div>
-          </Link>
-        </div>
+          </div>
+        ))}
       </div>
-    </>
-  );
-};
+    </div>
+  )
+}
 
-export default RelatedVideosShel;
+export default RelatedVideosShel

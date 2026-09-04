@@ -1,46 +1,66 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 
-const Input = ({ searchIcon, setSearchIcon }) => {
+const Input = ({ searchIcon, setSearchIcon, onSearchNavigate, autoFocus = false }) => {
   const [text, setText] = useState('')
   const navigate = useNavigate()
+  const inputRef = useRef(null)
 
-  const goSearch = () => {
+  useEffect(() => {
+    if (!autoFocus || !inputRef.current) return undefined
+    const t = window.setTimeout(() => {
+      inputRef.current?.focus({ preventScroll: true })
+    }, 50)
+    return () => window.clearTimeout(t)
+  }, [autoFocus])
+
+  const goSearch = (e) => {
+    e?.preventDefault?.()
     const q = text.trim()
-    if (!q) return
+    if (!q) {
+      inputRef.current?.focus()
+      return
+    }
     navigate(`/result/${encodeURIComponent(q)}`)
+    onSearchNavigate?.()
   }
 
   return (
-    <div
-      className={`flex flex-grow items-stretch max-w-full ${
+    <form
+      onSubmit={goSearch}
+      className={`flex flex-1 items-stretch max-w-full min-w-0 ${
         searchIcon ? 'outline outline-1 outline-[#1c62b8] rounded-full' : ''
       }`}
+      role="search"
     >
-      <div className="flex flex-grow items-center bg-[#121212] border border-[#303030] rounded-l-full pl-4 min-w-0">
-        {searchIcon ? (
-          <i className="fa-solid text-[#fff] fa-magnifying-glass mr-3 opacity-90"></i>
-        ) : null}
+      <div className="flex flex-1 items-center bg-[#121212] border border-[#303030] rounded-l-full pl-3 sm:pl-4 min-w-0">
         <input
+          ref={inputRef}
           onFocus={(e) => {
-            setSearchIcon(true)
+            setSearchIcon?.(true)
             e.stopPropagation()
           }}
-          onBlur={() => setSearchIcon(false)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') goSearch()
-          }}
+          onBlur={() => setSearchIcon?.(false)}
           value={text}
           onChange={(e) => setText(e.target.value)}
           type="text"
-          className="text-white w-full bg-transparent text-base outline-none py-[9px] placeholder:text-[#888]"
+          inputMode="search"
+          enterKeyHint="search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          className="text-white w-full bg-transparent text-base outline-none py-[10px] placeholder:text-[#888] min-w-0"
           placeholder="Search"
+          aria-label="Search"
         />
         {text ? (
           <button
             type="button"
-            onClick={() => setText('')}
-            className="px-2 text-white hover:text-[#aaa]"
+            onClick={() => {
+              setText('')
+              inputRef.current?.focus()
+            }}
+            className="px-2 text-white hover:text-[#aaa] flex-shrink-0"
             aria-label="Clear"
           >
             <i className="fa-solid fa-xmark"></i>
@@ -48,14 +68,13 @@ const Input = ({ searchIcon, setSearchIcon }) => {
         ) : null}
       </div>
       <button
-        type="button"
-        onClick={goSearch}
-        className="px-[22px] bg-[#222222] hover:bg-[#303030] border border-l-0 border-[#303030] rounded-r-full"
+        type="submit"
+        className="px-3.5 sm:px-[20px] bg-[#222222] active:bg-[#303030] hover:bg-[#303030] border border-l-0 border-[#303030] rounded-r-full flex-shrink-0"
         aria-label="Search"
       >
         <i className="fa-solid fa-magnifying-glass text-[#f1f1f1]"></i>
       </button>
-    </div>
+    </form>
   )
 }
 

@@ -14,8 +14,8 @@ const primary = [
 const youLinks = [
   { to: '/you', label: 'Your channel', icon: 'fa-regular fa-circle-user' },
   { to: '/history', label: 'History', icon: 'fa-solid fa-clock-rotate-left' },
-  { to: '/you', label: 'Playlists', icon: 'fa-solid fa-list' },
-  { to: '/you', label: 'Watch later', icon: 'fa-regular fa-clock' },
+  { to: '/playlists', label: 'Playlists', icon: 'fa-solid fa-list' },
+  { to: '/watch-later', label: 'Watch later', icon: 'fa-regular fa-clock' },
   { to: '/liked', label: 'Liked videos', icon: 'fa-regular fa-thumbs-up' },
   { to: '/downloads', label: 'Downloads', icon: 'fa-solid fa-download' },
 ]

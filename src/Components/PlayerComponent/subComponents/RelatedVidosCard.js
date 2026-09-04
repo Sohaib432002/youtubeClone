@@ -1,170 +1,65 @@
-import { useState } from "react";
-import { Link } from "react-router";
+import { Link } from 'react-router-dom'
+import { formatViews, timeAgo } from '../../../utils/format'
 
-const listbtnIcons = [
-  "outdent",
-  "clock",
-  "list",
-  "arrow-down",
-  "share",
-  "flag",
-];
-const listbtnNames = [
-  "Add to Queue",
-  "Save to Watch Later",
-  "Save to playlist",
-  "Download",
-  "Share",
-  "Report",
-];
-function DateConverter(currentDate) {
-  const date = new Date(currentDate);
-  let Month;
-  switch (date.getMonth()) {
-    case 0:
-      Month = "Jan";
-      break;
-    case 1:
-      Month = "Feb";
-      break;
-    case 2:
-      Month = "Mar";
-      break;
-    case 3:
-      Month = "April";
-      break;
-    case 4:
-      Month = "May";
-      break;
-    case 5:
-      Month = "June";
-      break;
-    case 6:
-      Month = "July";
-      break;
-    case 7:
-      Month = "Aug";
-      break;
-    case 8:
-      Month = "Sep";
-      break;
-    case 9:
-      Month = "Oct";
-      break;
-    case 10:
-      Month = "Nov";
-      break;
-    case 11:
-      Month = "Dec";
-      break;
+/**
+ * Related video row — always one full-width line (thumb + meta).
+ * Desktop sidebar: compact horizontal. Mobile/tablet: same row, larger thumb.
+ */
+const RelatedVidosCard = ({ setupdate, item, compact = false }) => {
+  const videoId =
+    item?.id?.videoId ||
+    (typeof item?.id === 'string' ? item.id : null) ||
+    item?.meta?.videoId
 
-    default:
-      Month = "";
-      break;
-  }
-  return `${Month},${date.getFullYear()}`;
-}
-const RelatedVidosCard = ({ setupdate, windowResize,RelatedVidoesChannelsData, item }) => {
-  const [options, setOptions] = useState(false);
-  const [, sethoverVideo] = useState(false);
- console.log(RelatedVidoesChannelsData);
+  if (!videoId || !item?.snippet) return null
+
+  const thumb =
+    item.snippet.thumbnails?.medium?.url ||
+    item.snippet.thumbnails?.high?.url ||
+    `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`
+
+  const views = item.statistics?.viewCount ?? item.meta?.views
+  const published = item.snippet.publishedAt || item.snippet.publishTime
 
   return (
-    <>
-      <Link
+    <Link
+      to={`/Video/${videoId}`}
       onClick={() => {
-  setupdate(Math.random());
-  window.scrollTo(0, 0);
-}
-        }
-
-        to={`/Video/${item.id.videoId}`}
+        setupdate?.(Math.random())
+        window.scrollTo(0, 0)
+      }}
+      className="flex w-full gap-2.5 sm:gap-3 py-1.5 group text-[#f1f1f1] hover:bg-[#1a1a1a] rounded-lg px-1"
+    >
+      <div
+        className={`relative flex-shrink-0 overflow-hidden rounded-lg bg-[#272727] aspect-video ${
+          compact ? 'w-[168px]' : 'w-[42%] max-w-[200px] sm:w-[180px]'
+        }`}
       >
-        <div
-          key={`${item.id.videoId}`}
-          id={`${item.id.videoId}`}
-          onMouseEnter={() => {
-            sethoverVideo(true);
-          }}
-          onMouseLeave={() => {
-            sethoverVideo(false);
-          }}
-          className={`${windowResize >= 1170 ? "flex" : ""} my-1`}
+        <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        {item.meta?.duration ? (
+          <span className="absolute bottom-1 right-1 bg-black/85 text-[10px] px-1 rounded text-white">
+            {item.meta.duration}
+          </span>
+        ) : null}
+      </div>
+      <div className="min-w-0 flex-1 py-0.5">
+        <p
+          className={`font-medium leading-snug line-clamp-2 group-hover:text-white ${
+            compact ? 'text-sm' : 'text-[15px] sm:text-base'
+          }`}
         >
-          <div
-            className={`object-contain ${
-              windowResize >= 1170 ? "" : "my-3"
-            }  rounded-lg overflow-hidden`}
-          >
-            <img
-              width={`${windowResize >= 1170 ? 150 : "100%"}`}
-              src={item.snippet.thumbnails.high.url}
-              className={`${windowResize >= 1170 ? "" : ""}`}
-              alt="thumbail"
-            />
-          </div>
-          <div className="flex flex-grow justify-between ">
-            <div
-              className={`${
-                windowResize >= 1170 ? "flex-grow" : "flex-grow"
-              }flex flex-col mx-2`}
-            >
-              {windowResize >= 1170 ? (
-                <p>
-                  {item.snippet.title.length > 20
-                    ? item.snippet.title.slice(0, 20) + "...."
-                    : item.snippet.title}
-                </p>
-              ) : (
-                <p className="my-3">
-                  {item.snippet.title.length > 50
-                    ? item.snippet.title.slice(0, 50) + "...."
-                    : item.snippet.title}
-                </p>
-              )}
-              <Link to={`/${item.snippet.channelId}`}>
-                {/* <img src={`${}`} alt="" /> */}
-                <p>{item.snippet.channelTitle}</p>
-              </Link>
-              <p>
-                {/* <span>1.5M views </span> */}
-                <span>{DateConverter(item.snippet.publishedAt)}</span>
-              </p>
-            </div>
-            <div className="relative">
-              <i
-                onClick={() => setOptions(!options)}
-                className="fa-solid my-3 fa-ellipsis-vertical"
-              ></i>
-              {options && (
-                <div className=" z-30 right-[20px] top-[20px] text-[16px] overflow-hidden w-[210px] bg-[#272727]  rounded-lg absolute">
-                  {listbtnNames.map((item, i) => {
-                    return (
-                      <div className="flex  flex-col   ">
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            alert(`${item}, we are working on it`);
-                          }}
-                          className="px-4  hover:bg-[#414140] flex items-center py-2"
-                        >
-                          {" "}
-                          <i
-                            className={`fa-solid mx-2  fa-${listbtnIcons[i]}`}
-                          ></i>
-                          <p>{item}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </Link>
-    </>
-  );
-};
+          {item.snippet.title}
+        </p>
+        <p className="text-[12px] sm:text-[13px] text-[#aaa] mt-1 truncate">
+          {item.snippet.channelTitle}
+        </p>
+        <p className="text-[11px] sm:text-[12px] text-[#aaa] mt-0.5">
+          {views != null ? `${formatViews(views)} views` : ''}
+          {published ? `${views != null ? ' • ' : ''}${timeAgo(published)}` : ''}
+        </p>
+      </div>
+    </Link>
+  )
+}
 
-export default RelatedVidosCard;
+export default RelatedVidosCard

@@ -103,6 +103,28 @@ export const SubscriptionsProvider = ({ children }) => {
     })
   }, [])
 
+  /** Update stored original subscriber count from live API/catalog (keeps user ±1 delta). */
+  const syncSubscriberBase = useCallback((channelId, originalCount) => {
+    if (!channelId || originalCount == null || originalCount === '') return
+    const base = parseSubscriberCount(originalCount)
+    if (!base && originalCount !== 0 && originalCount !== '0') return
+    setCounts((prev) => {
+      const row = prev[channelId]
+      if (row && row.base === base) return prev
+      // Don't replace a real base with 0 unless explicitly zero from API
+      if (row && row.base > 0 && base === 0) return prev
+      const next = {
+        ...prev,
+        [channelId]: {
+          base,
+          delta: row?.delta || 0,
+        },
+      }
+      localStorage.setItem(COUNTS_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [])
+
   const toggleSubscribe = useCallback(
     (channel) => {
       const channelId = channel?.channelId
@@ -175,6 +197,7 @@ export const SubscriptionsProvider = ({ children }) => {
       toggleSubscribe,
       getSubscriberCount,
       ensureChannelCount,
+      syncSubscriberBase,
     }),
     [
       subscriptions,
@@ -182,6 +205,7 @@ export const SubscriptionsProvider = ({ children }) => {
       toggleSubscribe,
       getSubscriberCount,
       ensureChannelCount,
+      syncSubscriberBase,
     ]
   )
 

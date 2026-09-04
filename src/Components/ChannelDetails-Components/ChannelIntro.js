@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { formatViews } from '../../utils/format'
 import { useSubscriptions } from '../../Hooks/SubscriptionsContext'
 import SubscribeButton from '../ui/SubscribeButton'
 
 const ChannelIntro = ({ channelData, ChannelPic }) => {
   const [more, setmore] = useState(false)
-  const { getSubscriberCount } = useSubscriptions()
+  const { getSubscriberCount, syncSubscriberBase } = useSubscriptions()
 
   const channelId = channelData?.id
   const title =
@@ -17,10 +17,14 @@ const ChannelIntro = ({ channelData, ChannelPic }) => {
     channelData?.snippet?.thumbnails?.default?.url ||
     '/favicon.ico'
 
-  const subscriberCount = getSubscriberCount(
-    channelId,
-    channelData?.statistics?.subscriberCount
-  )
+  const originalSubs = channelData?.statistics?.subscriberCount
+  useEffect(() => {
+    if (channelId && originalSubs != null) {
+      syncSubscriberBase(channelId, originalSubs)
+    }
+  }, [channelId, originalSubs, syncSubscriberBase])
+
+  const subscriberCount = getSubscriberCount(channelId, originalSubs)
   const videoCount = channelData?.statistics?.videoCount
 
   return (
@@ -56,7 +60,7 @@ const ChannelIntro = ({ channelData, ChannelPic }) => {
             title={title}
             handle={channelData?.snippet?.customUrl}
             avatar={logo}
-            subscriberCount={subscriberCount}
+            subscriberCount={originalSubs}
             size="lg"
           />
         </div>

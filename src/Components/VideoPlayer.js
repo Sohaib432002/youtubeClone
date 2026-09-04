@@ -155,20 +155,20 @@ const VideoPlayer = () => {
 
   return (
     <div
-      className={`grid text-[#aaa] max-w-[1700px] w-full bg-[#0f0f0f] m-auto VideoPlayer pt-[72px] sm:pt-[80px] px-0 sm:px-4 ${
+      className={`grid text-[#aaa] max-w-[1700px] w-full bg-[#0f0f0f] m-auto VideoPlayer pt-[64px] sm:pt-[80px] pb-20 md:pb-8 px-0 sm:px-4 ${
         windowResize <= 1170 ? 'gap-4' : 'gap-6'
       }`}
     >
-      <div className="flex flex-col max-w-[1500px] w-full min-w-0">
+      <div className="flex flex-col max-w-[1500px] w-full min-w-0 overflow-x-hidden">
         <Player fetchData={fetchData} />
         <VideoDescription fetchData={fetchData} />
         <div className="comments-section">
           <Comments fetchData={fetchData} commentData={commentData} />
         </div>
       </div>
-      <div className="min-w-0 w-full">
+      <div className="min-w-0 w-full overflow-x-hidden">
         <RelatedVideos setupdate={setUpdate} randomVideosData={randomVideosData} />
-        <div className="comments-section-bottom">
+        <div className="comments-section-bottom mt-4">
           <Comments fetchData={fetchData} commentData={commentData} />
         </div>
       </div>

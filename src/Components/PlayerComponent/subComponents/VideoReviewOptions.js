@@ -1,23 +1,27 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getChannelLogoMap } from '../../../utils/youtubeApi'
 import { getCatalogVideo } from '../../../data/mockCatalog'
 import { downloadVideoFile, formatViews } from '../../../utils/format'
 import { useLikes } from '../../../Hooks/LikesContext'
 import { useSubscriptions } from '../../../Hooks/SubscriptionsContext'
+import { useWatchLater } from '../../../Hooks/WatchLaterContext'
 import SubscribeButton from '../../ui/SubscribeButton'
+import SavePlaylistModal from '../../ui/SavePlaylistModal'
 
 const VideoReviewOptions = ({ fetchData }) => {
   const [disLike, setdisLike] = useState(false)
   const [revOptions, setrevOptions] = useState(false)
-  const [Saved, setSaved] = useState(false)
   const [channelLogo, setChannelLogo] = useState('')
   const [dlProgress, setDlProgress] = useState(null)
   const [dlError, setDlError] = useState('')
   const [actionError, setActionError] = useState('')
+  const [actionOk, setActionOk] = useState('')
+  const [saveOpen, setSaveOpen] = useState(false)
 
-  const { isLiked, toggleLike } = useLikes()
-  const { getSubscriberCount } = useSubscriptions()
+  const { isLiked, toggleLike, getLikeCount, syncLikeBase } = useLikes()
+  const { getSubscriberCount, syncSubscriberBase } = useSubscriptions()
+  const { isInWatchLater } = useWatchLater()
 
   const video = fetchData?.items?.[0]
   const channelId = video?.snippet?.channelId
@@ -28,10 +32,33 @@ const VideoReviewOptions = ({ fetchData }) => {
   const catalog = getCatalogVideo(videoId)
   const liked = isLiked(videoId)
 
+  const originalLikes = useMemo(() => {
+    const api = video?.statistics?.likeCount
+    if (api != null && api !== '') return Number(api)
+    if (catalog?.likes != null) return Number(catalog.likes)
+    return 0
+  }, [video, catalog])
+
+  const originalSubs = useMemo(() => {
+    const api = video?.statistics?.subscriberCount
+    if (api != null && api !== '') return api
+    return catalog?.subscribers ?? 0
+  }, [video, catalog])
+
   useEffect(() => {
     setdisLike(false)
     setActionError('')
+    setActionOk('')
+    setrevOptions(false)
   }, [videoId])
+
+  useEffect(() => {
+    if (videoId != null) syncLikeBase(videoId, originalLikes)
+  }, [videoId, originalLikes, syncLikeBase])
+
+  useEffect(() => {
+    if (channelId) syncSubscriberBase(channelId, originalSubs)
+  }, [channelId, originalSubs, syncSubscriberBase])
 
   useEffect(() => {
     if (catalog?.channelAvatar) {
@@ -48,23 +75,32 @@ const VideoReviewOptions = ({ fetchData }) => {
     }
   }, [channelId, catalog])
 
+  const videoEntry = {
+    videoId,
+    title: video?.snippet?.title,
+    thumbnail:
+      video?.snippet?.thumbnails?.medium?.url ||
+      video?.snippet?.thumbnails?.high?.url ||
+      `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
+    channelTitle: video?.snippet?.channelTitle,
+    channelId,
+    channelLogo: channelLogo || catalog?.channelAvatar,
+    views: video?.statistics?.viewCount || catalog?.views,
+    duration: catalog?.duration || '',
+    publishedAt: video?.snippet?.publishedAt || catalog?.publishedAt,
+    likeCount: originalLikes,
+  }
+
   const onLike = () => {
     setActionError('')
-    const result = toggleLike({
-      videoId,
-      title: video.snippet?.title,
-      thumbnail:
-        video.snippet?.thumbnails?.medium?.url ||
-        video.snippet?.thumbnails?.high?.url ||
-        `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
-      channelTitle: video.snippet?.channelTitle,
-      channelId,
-      channelLogo: channelLogo || catalog?.channelAvatar,
-      views: video.statistics?.viewCount || catalog?.views,
-      duration: catalog?.duration || '',
-      publishedAt: video.snippet?.publishedAt || catalog?.publishedAt,
-    })
-    if (result.ok && result.liked) setdisLike(false)
+    setActionOk('')
+    const result = toggleLike(videoEntry)
+    if (result.ok && result.liked) {
+      setdisLike(false)
+      setActionOk('Added to Liked videos')
+    } else if (result.ok && !result.liked) {
+      setActionOk('Removed from Liked videos')
+    }
     if (!result.ok && result.reason !== 'auth') {
       setActionError('Could not update like. Try again.')
     }
@@ -101,12 +137,9 @@ const VideoReviewOptions = ({ fetchData }) => {
 
   if (!video) return null
 
-  const baseLikes = Number(video.statistics?.likeCount || catalog?.likes || 0)
-  const displayLikes = baseLikes + (liked ? 1 : 0)
-  const subCount = getSubscriberCount(
-    channelId,
-    video.statistics?.subscriberCount || catalog?.subscribers || 0
-  )
+  const displayLikes = getLikeCount(videoId, originalLikes)
+  const subCount = getSubscriberCount(channelId, originalSubs)
+  const savedSomewhere = isInWatchLater(videoId)
 
   return (
     <>
@@ -142,7 +175,7 @@ const VideoReviewOptions = ({ fetchData }) => {
             channelId={channelId}
             title={video.snippet?.channelTitle}
             avatar={channelLogo || catalog?.channelAvatar}
-            subscriberCount={subCount}
+            subscriberCount={originalSubs}
             className="ml-1"
           />
         </div>
@@ -165,13 +198,7 @@ const VideoReviewOptions = ({ fetchData }) => {
               onClick={() => {
                 setdisLike(!disLike)
                 if (!disLike && liked) {
-                  toggleLike({
-                    videoId,
-                    title: video.snippet?.title,
-                    thumbnail: video.snippet?.thumbnails?.medium?.url,
-                    channelTitle: video.snippet?.channelTitle,
-                    channelId,
-                  })
+                  toggleLike(videoEntry)
                 }
               }}
               className="px-3.5 py-2 hover:bg-[#3f3f3f]"
@@ -187,7 +214,7 @@ const VideoReviewOptions = ({ fetchData }) => {
             onClick={() => {
               navigator.clipboard?.writeText(window.location.href)
               setActionError('')
-              alert('Link copied')
+              setActionOk('Link copied')
             }}
           >
             <i className="fa-solid fa-share"></i>
@@ -213,6 +240,17 @@ const VideoReviewOptions = ({ fetchData }) => {
             )}
           </button>
 
+          <button
+            type="button"
+            onClick={() => setSaveOpen(true)}
+            className={`flex items-center gap-2 rounded-full bg-[#272727] hover:bg-[#3f3f3f] text-[#eee] text-sm px-3.5 py-2 ${
+              savedSomewhere ? 'ring-1 ring-[#3ea6ff]' : ''
+            }`}
+          >
+            <i className={`fa-${savedSomewhere ? 'solid' : 'regular'} fa-bookmark`}></i>
+            Save
+          </button>
+
           <div className="relative">
             <button
               type="button"
@@ -223,17 +261,17 @@ const VideoReviewOptions = ({ fetchData }) => {
               <i className="fa-solid fa-ellipsis-vertical"></i>
             </button>
             {revOptions ? (
-              <div className="absolute right-0 top-12 z-30 bg-[#282828] rounded-xl overflow-hidden w-48 shadow-xl border border-[#3f3f3f]">
+              <div className="absolute right-0 top-12 z-30 bg-[#282828] rounded-xl overflow-hidden w-52 shadow-xl border border-[#3f3f3f]">
                 <button
                   type="button"
                   onClick={() => {
-                    setSaved(!Saved)
+                    setSaveOpen(true)
                     setrevOptions(false)
                   }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#3f3f3f] text-sm text-left"
                 >
-                  <i className={`fa-${Saved ? 'solid' : 'regular'} fa-bookmark`}></i>
-                  {Saved ? 'Saved' : 'Save'}
+                  <i className="fa-regular fa-bookmark"></i>
+                  Save to playlist
                 </button>
                 <button
                   type="button"
@@ -254,6 +292,15 @@ const VideoReviewOptions = ({ fetchData }) => {
       {actionError ? (
         <p className="mx-2 sm:mx-4 md:ml-6 lg:ml-0 mt-2 text-sm text-red-400">{actionError}</p>
       ) : null}
+      {actionOk ? (
+        <p className="mx-2 sm:mx-4 md:ml-6 lg:ml-0 mt-2 text-sm text-[#3ea6ff]">{actionOk}</p>
+      ) : null}
+
+      <SavePlaylistModal
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        video={videoEntry}
+      />
     </>
   )
 }

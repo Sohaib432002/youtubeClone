@@ -17,10 +17,6 @@ body {
   box-sizing: border-box;
 }
 
-.magnifying {
-  display: none;
-}
-
 .VideoPlayer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 402px);
@@ -114,7 +110,7 @@ body {
   }
 
   .channelIntro {
-    justify-content: center;
+    justify-content: flex-start;
     display: flex;
   }
 
@@ -139,25 +135,12 @@ body {
     padding: 0;
     padding-inline: 12px;
   }
-
-  .magnifying {
-    display: none;
-  }
 }
 
 @media (max-width: 680px) {
-  .nav-input {
-    margin: 0px !important;
-    display: none !important;
-  }
-
   .channelDetail {
     padding: 0;
     padding-inline: 12px;
-  }
-
-  .magnifying {
-    display: block;
   }
 
   .navbar {
@@ -169,13 +152,9 @@ body {
     height: auto;
   }
 
-  .nav-btn button {
-    padding: 5px 8px;
-    font-size: 12px;
-  }
-
   .VideoPlayer {
     padding-inline: 0;
+    gap: 0.75rem;
   }
 }
 
