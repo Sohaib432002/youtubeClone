@@ -4,17 +4,22 @@ import { Link } from 'react-router'
 const Logo = ({ setleftBar, leftBar }) => {
   return (
     <div className="flex items-center flex-shrink-0 min-w-0">
-      <div className="hover:bg-[#222222] hover:cursor-pointer rounded-full h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center">
-        <i
-          onClick={() => setleftBar(!leftBar)}
-          className="fa-solid fa-bars text-white text-xl sm:text-2xl"
-        ></i>
-      </div>
-      <div className="flex items-center">
-        <Link to="/">
-          <img src="/Logo.svg" className="logo-img max-w-[90px] sm:max-w-[100px] h-auto" alt="logo" />
-        </Link>
-      </div>
+      <button
+        type="button"
+        onClick={() => setleftBar(!leftBar)}
+        className="hover:bg-[#222] rounded-full h-10 w-10 flex items-center justify-center"
+        aria-label="Menu"
+      >
+        <i className="fa-solid fa-bars text-white text-xl"></i>
+      </button>
+      <Link to="/" className="flex items-center gap-1 ml-1" title="YouTubeClone">
+        <img
+          src="/Logo.svg"
+          className="logo-img max-w-[150px] sm:max-w-[170px] h-auto"
+          alt="YouTubeClone"
+        />
+        <span className="text-[10px] text-[#aaa] self-start mt-1 hidden sm:inline">PK</span>
+      </Link>
     </div>
   )
 }

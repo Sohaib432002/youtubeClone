@@ -3,11 +3,15 @@ import { useLocation, useParams } from 'react-router-dom'
 import { ThemeContext } from '../Hooks/ThemeContext'
 import { useWatchHistory } from '../Hooks/HistoryContext'
 import {
-  getChannelLogoMap,
   getVideoComments,
   getVideoDetails,
   searchVideos,
 } from '../utils/youtubeApi'
+import {
+  getCatalogVideo,
+  getRelated,
+  toSearchItem,
+} from '../data/mockCatalog'
 import Comments from './PlayerComponent/Comments'
 import Player from './PlayerComponent/Player'
 import RelatedVideos from './PlayerComponent/RelatedVideosList'
@@ -16,13 +20,11 @@ import VideoDescription from './PlayerComponent/subComponents/VideoDescription'
 const VideoPlayer = () => {
   const location = useLocation()
   const { id, text } = useParams()
-
   const [fetchData, setFetchData] = useState(null)
   const [notFound, setNotFound] = useState(false)
   const [commentData, setCommentData] = useState({ items: [] })
   const [randomVideosData, setRandomVideosData] = useState({ items: [] })
   const [update, setUpdate] = useState(0)
-
   const { windowResize, setisShowScrollbar } = useContext(ThemeContext)
   const { addToHistory } = useWatchHistory()
 
@@ -35,47 +37,93 @@ const VideoPlayer = () => {
 
     const load = async () => {
       setNotFound(false)
-      let videoPayload = null
+      const catalog = getCatalogVideo(id)
 
       if (location.state?.items) {
-        videoPayload = location.state
         if (!cancelled) setFetchData(location.state)
+      } else if (catalog) {
+        const item = toSearchItem(catalog)
+        const detail = {
+          kind: 'youtube#videoListResponse',
+          items: [
+            {
+              kind: 'youtube#video',
+              id: catalog.videoId,
+              snippet: {
+                ...item.snippet,
+                description: catalog.description,
+              },
+              statistics: item.statistics,
+            },
+          ],
+        }
+        if (!cancelled) setFetchData(detail)
       } else if (id) {
         const data = await getVideoDetails(id)
         if (cancelled) return
-        videoPayload = data
         if (data?.items?.length) setFetchData(data)
         else setNotFound(true)
       }
 
-      const video = videoPayload?.items?.[0]
-      if (video && id) {
-        const channelId = video.snippet?.channelId
-        let channelLogo = ''
-        if (channelId) {
-          const logos = await getChannelLogoMap([channelId])
-          channelLogo = logos[channelId] || ''
-        }
+      const video = catalog || null
+      if (id) {
         addToHistory({
           videoId: id,
-          title: video.snippet?.title,
-          thumbnail:
-            video.snippet?.thumbnails?.medium?.url ||
-            video.snippet?.thumbnails?.default?.url,
-          channelTitle: video.snippet?.channelTitle,
-          channelId,
-          channelLogo,
+          title: video?.title || fetchData?.items?.[0]?.snippet?.title,
+          thumbnail: video?.thumbnails?.medium?.url,
+          channelTitle: video?.channelTitle,
+          channelId: video?.channelId,
+          channelLogo: video?.channelAvatar,
         })
       }
 
       if (id) {
         const comments = await getVideoComments(id)
-        if (!cancelled) setCommentData(comments || { items: [] })
+        if (!cancelled) {
+          if (comments?.items?.length) setCommentData(comments)
+          else if (catalog) {
+            setCommentData({
+              items: [
+                {
+                  id: 'c1',
+                  snippet: {
+                    topLevelComment: {
+                      snippet: {
+                        authorDisplayName: 'Viewer',
+                        authorProfileImageUrl: 'https://i.pravatar.cc/50?u=c1',
+                        textDisplay: 'Great video! Thanks for sharing.',
+                        publishedAt: new Date().toISOString(),
+                        likeCount: 12,
+                      },
+                    },
+                  },
+                },
+              ],
+            })
+          }
+        }
       }
 
-      const relatedQuery = text || video?.snippet?.title || 'trending'
-      const related = await searchVideos(relatedQuery, 25)
-      if (!cancelled) setRandomVideosData(related || { items: [] })
+      const relatedLocal = { items: getRelated(id, 24) }
+      try {
+        const related = await searchVideos(text || video?.title || 'trending', 20)
+        if (!cancelled) {
+          setRandomVideosData(
+            related?.items?.length
+              ? {
+                  items: [
+                    ...related.items,
+                    ...relatedLocal.items.filter(
+                      (r) => !related.items.some((x) => x.id?.videoId === r.id?.videoId)
+                    ),
+                  ],
+                }
+              : relatedLocal
+          )
+        }
+      } catch (_) {
+        if (!cancelled) setRandomVideosData(relatedLocal)
+      }
     }
 
     load()
@@ -87,16 +135,15 @@ const VideoPlayer = () => {
 
   if (notFound) {
     return (
-      <div className="pt-[119px] text-center text-[#AAAAAA] min-h-[50vh] flex flex-col items-center justify-center px-4">
+      <div className="pt-[119px] text-center text-[#aaa] min-h-[50vh] flex flex-col items-center justify-center px-4">
         <p className="text-white text-lg mb-2">Video unavailable</p>
-        <p className="text-sm">This video could not be loaded right now.</p>
       </div>
     )
   }
 
   return (
     <div
-      className={`grid text-[#AAAAAA] max-w-[1666px] w-full bg-[#0f0f0f] m-auto VideoPlayer pt-[90px] sm:pt-[100px] px-0 sm:px-4 ${
+      className={`grid text-[#aaa] max-w-[1700px] w-full bg-[#0f0f0f] m-auto VideoPlayer pt-[72px] sm:pt-[80px] px-0 sm:px-4 ${
         windowResize <= 1170 ? 'gap-4' : 'gap-6'
       }`}
     >
@@ -107,7 +154,6 @@ const VideoPlayer = () => {
           <Comments fetchData={fetchData} commentData={commentData} />
         </div>
       </div>
-
       <div className="min-w-0 w-full">
         <RelatedVideos setupdate={setUpdate} randomVideosData={randomVideosData} />
         <div className="comments-section-bottom">

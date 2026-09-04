@@ -10,6 +10,9 @@ import History from './Components/Menu-Components/History'
 import Home from './Components/Menu-Components/Home'
 import Self from './Components/Menu-Components/Self'
 import Shorts from './Components/Menu-Components/Shorts'
+import ShortsPlayer from './Components/Menu-Components/ShortsPlayer'
+import Downloads from './Components/Menu-Components/Downloads'
+import Settings from './Components/Menu-Components/Settings'
 import Subscriptions from './Components/Menu-Components/Subsciptions'
 import MenuOptions from './Components/MenuOptions'
 import Result from './Components/Result'
@@ -18,7 +21,9 @@ import { CallContextFun } from './Hooks/CallingCotext'
 import { ThemeProvider } from './Hooks/ThemeContext'
 import { AuthProvider } from './Hooks/AuthContext'
 import { HistoryProvider } from './Hooks/HistoryContext'
+import { PrefsProvider } from './Hooks/PrefsContext'
 import './index.css'
+import './App.css'
 import PostDetails from './Components/ChannelDetails-Components/PostDetails'
 import PostComments from './Components/ChannelDetails-Components/PostComments'
 
@@ -45,6 +50,8 @@ const router = createBrowserRouter([
           { path: '/Subscriptions', element: <Subscriptions /> },
           { path: '/you', element: <Self /> },
           { path: '/history', element: <History /> },
+          { path: '/downloads', element: <Downloads /> },
+          { path: '/settings', element: <Settings /> },
           { path: '/result/:text', element: <Result /> },
           {
             path: '/channel/:channelId',
@@ -60,6 +67,7 @@ const router = createBrowserRouter([
       },
       { path: '/Video/:id', element: <VideoPlayer /> },
       { path: '/result/:text/Video/:id', element: <VideoPlayer /> },
+      { path: '/shorts/:id', element: <ShortsPlayer /> },
     ],
   },
 ])
@@ -69,11 +77,13 @@ const root = document.getElementById('root')
 ReactDOM.createRoot(root).render(
   <AuthProvider>
     <HistoryProvider>
-      <CallContextFun>
-        <ThemeProvider>
-          <RouterProvider router={router} />
-        </ThemeProvider>
-      </CallContextFun>
+      <PrefsProvider>
+        <CallContextFun>
+          <ThemeProvider>
+            <RouterProvider router={router} />
+          </ThemeProvider>
+        </CallContextFun>
+      </PrefsProvider>
     </HistoryProvider>
   </AuthProvider>
 )

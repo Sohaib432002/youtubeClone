@@ -1,172 +1,209 @@
-import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { getChannelLogoMap } from "../../../utils/youtubeApi";
+import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { getChannelLogoMap } from '../../../utils/youtubeApi'
+import { getCatalogVideo } from '../../../data/mockCatalog'
+import { downloadVideoFile, formatViews } from '../../../utils/format'
 
 const VideoReviewOptions = ({ fetchData }) => {
-  const [Like, setLike] = useState(false);
-  const [disLike, setdisLike] = useState(false);
-  const [revOptions, setrevOptions] = useState(false);
-  const [Saved, setSaved] = useState(false);
-  const [, setReport] = useState(false);
-  const [channelLogo, setChannelLogo] = useState('');
+  const [Like, setLike] = useState(false)
+  const [disLike, setdisLike] = useState(false)
+  const [revOptions, setrevOptions] = useState(false)
+  const [Saved, setSaved] = useState(false)
+  const [channelLogo, setChannelLogo] = useState('')
+  const [dlProgress, setDlProgress] = useState(null)
+  const [dlError, setDlError] = useState('')
 
   const video = fetchData?.items?.[0]
   const channelId = video?.snippet?.channelId
+  const videoId = typeof video?.id === 'string' ? video.id : video?.id
+  const catalog = getCatalogVideo(videoId)
 
   useEffect(() => {
-    if (!channelId) return
+    if (catalog?.channelAvatar) {
+      setChannelLogo(catalog.channelAvatar)
+      return
+    }
+    if (!channelId || String(channelId).startsWith('ch_')) return
     getChannelLogoMap([channelId]).then((map) => {
       setChannelLogo(map[channelId] || '')
     })
-  }, [channelId])
+  }, [channelId, catalog])
 
-  function formatNumber(num) {
-    if (!num) return "0";
-    if (num >= 1_000_000_000) {
-      return (num / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B";
+  const onDownload = async () => {
+    setDlError('')
+    const url = catalog?.downloadUrl
+    if (!url) {
+      setDlError('Download is not available for this video.')
+      return
     }
-    if (num >= 1_000_000) {
-      return (num / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+    try {
+      setDlProgress(0)
+      const name = `${(catalog?.title || 'video').slice(0, 40).replace(/[^\w\s-]/g, '')}.mp4`
+      await downloadVideoFile(url, name, setDlProgress)
+      // persist to local downloads list
+      const prev = JSON.parse(localStorage.getItem('yt_clone_downloads') || '[]')
+      const entry = {
+        videoId: catalog.videoId,
+        title: catalog.title,
+        thumbnail: catalog.thumbnails.medium.url,
+        downloadedAt: new Date().toISOString(),
+      }
+      localStorage.setItem(
+        'yt_clone_downloads',
+        JSON.stringify([entry, ...prev.filter((x) => x.videoId !== entry.videoId)].slice(0, 50))
+      )
+      setTimeout(() => setDlProgress(null), 800)
+    } catch (err) {
+      setDlProgress(null)
+      setDlError(err.message || 'Download failed. Try again.')
     }
-    if (num >= 1_000) {
-      return (num / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
-    }
-    return num.toString();
   }
 
   if (!video) return null
 
+  const likes = video.statistics?.likeCount || catalog?.likes
+
   return (
     <>
-      <div className="title mx-2 sm:mx-4 md:ml-8 lg:ml-12">
-        <p className="text-[16px] sm:text-[20px] font-bold pr-4 sm:pr-10 text-[#F1F1F1] break-words">
+      <div className="title mx-2 sm:mx-4 md:ml-6 lg:ml-0 mt-3">
+        <p className="text-lg sm:text-xl font-bold text-[#f1f1f1] break-words pr-2">
           {video.snippet?.title}
         </p>
       </div>
-      <div className="flex flex-col sm:flex-row sm:items-center max-w-[1227px] mx-2 sm:mx-4 md:ml-8 lg:ml-12 VideoCreatorDetails justify-between gap-3">
-        <div className="flex items-center flex-wrap gap-2">
+      <div className="flex flex-col lg:flex-row lg:items-center max-w-[1280px] mx-2 sm:mx-4 md:ml-6 lg:ml-0 VideoCreatorDetails justify-between gap-3 mt-2">
+        <div className="flex items-center flex-wrap gap-2 min-w-0">
           <Link
             to={channelId ? `/channel/${channelId}` : '#'}
-            className="mr-2 sm:mr-4 flex-shrink-0"
+            className="flex-shrink-0"
           >
             <img
-              src={channelLogo || '/favicon.ico'}
+              src={channelLogo || catalog?.channelAvatar || '/favicon.ico'}
               alt="channel"
-              width={40}
-              height={40}
-              className="rounded-full object-cover"
+              className="w-10 h-10 rounded-full object-cover"
             />
           </Link>
-          <div className="channel-intro flex flex-col items-start min-w-0">
+          <div className="flex flex-col min-w-0">
             <Link
               to={channelId ? `/channel/${channelId}` : '#'}
-              className="semi-bold text-[14px] sm:text-[16px] text-[#F1F1F1] truncate max-w-[180px] sm:max-w-none hover:underline"
+              className="text-sm sm:text-base text-[#f1f1f1] font-medium truncate hover:underline"
             >
               {video.snippet?.channelTitle}
             </Link>
-            <span className="text-[12px] text-[#AAAAAA]">
-              {formatNumber(video.statistics?.viewCount)} views
+            <span className="text-xs text-[#aaa]">
+              {formatViews(video.statistics?.viewCount || catalog?.views)} views
             </span>
           </div>
-          <div className="mx-3 ">
+          <button
+            type="button"
+            className="ml-2 font-semibold bg-white text-black hover:bg-[#d9d9d9] text-sm rounded-full py-2 px-4"
+          >
+            Subscribe
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex overflow-hidden rounded-full bg-[#272727] text-[#eee] text-sm">
             <button
-              className={`font-bold bg-white text-[#0F0F0F] hover:bg-[#414140] text-[16px]    flex items-center rounded-[30px] py-2 px-3  `}
+              type="button"
+              onClick={() => {
+                setLike(!Like)
+                if (!Like) setdisLike(false)
+              }}
+              className="flex items-center gap-1 px-3 py-2 hover:bg-[#3f3f3f] border-r border-[#3f3f3f]"
             >
-              Subscribe
+              <i className={`fa-${Like ? 'solid' : 'regular'} fa-thumbs-up`}></i>
+              {formatViews(likes)}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setdisLike(!disLike)
+                if (!disLike) setLike(false)
+              }}
+              className="px-3 py-2 hover:bg-[#3f3f3f]"
+            >
+              <i className={`fa-${disLike ? 'solid' : 'regular'} fa-thumbs-down`}></i>
             </button>
           </div>
-        </div>
-        <div className="flex py-3 flex-wrap gap-1 overflow-x-auto max-w-full">
-          <div
+
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-full bg-[#272727] hover:bg-[#3f3f3f] text-[#eee] text-sm px-3 py-2"
             onClick={() => {
-              setLike(!Like);
-              if (Like) {
-                setdisLike(false);
-              }
+              navigator.clipboard?.writeText(window.location.href)
+              alert('Link copied')
             }}
-            title="I like this video"
-            className="like flex border-r-[1px] hover:bg-[#414140] bg-[#272727] text-[#eeeeee] cursor-pointer p-2 items-center justify-center rounded-l-full  text-[16px]"
           >
-            <i
-              className={`${
-                Like ? "fa-regular" : "fa-solid"
-              } fa-regular fa-thumbs-up mx-1`}
-            ></i>
-            {formatNumber(video.statistics?.likeCount)}
-          </div>
-          <div
-            onClick={() => {
-              setdisLike(!disLike);
-              if (disLike) {
-                setLike(false);
-              }
-            }}
-            title="I don't Like it"
-            className="disLike px-4 px-2 hover:bg-[#414140] flex items-center justify-center text-[#eeeeee] cursor-pointer rounded-r-full bg-[#272727] text-[16px]"
+            <i className="fa-solid fa-share"></i>
+            Share
+          </button>
+
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-full bg-[#272727] hover:bg-[#3f3f3f] text-[#eee] text-sm px-3 py-2"
+            onClick={() => alert('Ask AI about this video (demo).')}
           >
-            <i
-              className={`${
-                disLike ? "fa-regular" : "fa-solid"
-              } fa-regular fa-thumbs-down `}
-            ></i>
-          </div>
-          <div
-            title="Share"
-            className="share px-4 px-2 mx-2 flex hover:bg-[#414140] items-center justify-center text-[#eeeeee] cursor-pointer rounded-full bg-[#272727] text-[16px]"
+            <i className="fa-solid fa-wand-magic-sparkles"></i>
+            Ask
+          </button>
+
+          <button
+            type="button"
+            onClick={onDownload}
+            disabled={dlProgress !== null}
+            className="flex items-center gap-2 rounded-full bg-[#272727] hover:bg-[#3f3f3f] text-[#eee] text-sm px-3 py-2 disabled:opacity-60"
           >
-            <i className="fa-solid fa-share mx-1"></i>Share
-          </div>
-          <div
-            title="Download this video"
-            className="Download px-4 px-2 hover:bg-[#414140] flex items-center justify-center text-[#eeeeee] cursor-pointer rounded-full bg-[#272727] text-[16px] hidden xs:flex sm:flex"
-          >
-            <i className="fa-solid fa-arrow-down mx-1"></i>
-            <span className="hidden sm:inline">Download</span>
-          </div>
-          <div
-            onClick={() => setrevOptions(!revOptions)}
-            className={`share px-2  ${
-              revOptions ? "" : "hover:bg-[#414140]"
-            } mx-2  relative flex items-center justify-center text-[#eeeeee] cursor-pointer rounded-full bg-[#272727] text-[16px]`}
-          >
-            <i className="fa-solid fa-ellipsis-vertical "></i>
-            {revOptions && (
-              <div className=" z-30 right-[20px] top-[50px] bg-[#272727] rounded-lg absolute">
-                <div className="flex flex-col  my-2 ">
-                  <div
-                    onClick={(e) => {
-                      setSaved(!Saved);
-                      e.stopPropagation();
-                    }}
-                    className="px-4 flex items-center hover:bg-[#414140] py-1"
-                  >
-                    {" "}
-                    <i
-                      className={` ${
-                        Saved ? "fa-solid" : "fa-regular"
-                      }   mx-2  fa-bookmark`}
-                    ></i>
-                    <p>save</p>
-                  </div>
-                  <div
-                    onClick={(e) => {
-                      setReport(true);
-                      e.stopPropagation();
-                    }}
-                    className="px-4 flex items-center  hover:bg-[#414140] py-1"
-                  >
-                    {" "}
-                    <i className="fa-regular mx-2 fa-flag"></i>
-                    <p>Report</p>
-                  </div>
-                </div>
-              </div>
+            {dlProgress !== null ? (
+              <>
+                <i className="fa-solid fa-circle-notch fa-spin"></i>
+                {dlProgress}%
+              </>
+            ) : (
+              <>
+                <i className="fa-solid fa-download"></i>
+                Download
+              </>
             )}
+          </button>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setrevOptions(!revOptions)}
+              className="w-10 h-10 rounded-full bg-[#272727] hover:bg-[#3f3f3f] text-[#eee]"
+            >
+              <i className="fa-solid fa-ellipsis-vertical"></i>
+            </button>
+            {revOptions ? (
+              <div className="absolute right-0 top-12 z-30 bg-[#282828] rounded-xl overflow-hidden w-48 shadow-xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSaved(!Saved)
+                    setrevOptions(false)
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#3f3f3f] text-sm text-left"
+                >
+                  <i className={`fa-${Saved ? 'solid' : 'regular'} fa-bookmark`}></i>
+                  {Saved ? 'Saved' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#3f3f3f] text-sm text-left"
+                >
+                  <i className="fa-regular fa-flag"></i>
+                  Report
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
+      {dlError ? (
+        <p className="mx-2 sm:mx-4 md:ml-6 lg:ml-0 mt-2 text-sm text-red-400">{dlError}</p>
+      ) : null}
     </>
-  );
-};
+  )
+}
 
-export default VideoReviewOptions;
+export default VideoReviewOptions

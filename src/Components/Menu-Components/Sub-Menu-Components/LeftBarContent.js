@@ -1,7 +1,8 @@
 import { NavLink, useNavigate } from 'react-router'
 import { useAuth } from '../../../Hooks/AuthContext'
-import { useContext } from 'react'
+import { useContext, useState } from 'react'
 import { ThemeContext } from '../../../Hooks/ThemeContext'
+import { getSubscriptionsPreview } from '../../../data/mockCatalog'
 
 const primary = [
   { to: '/', label: 'Home', icon: 'fa-solid fa-house', end: true },
@@ -10,44 +11,45 @@ const primary = [
 ]
 
 const youLinks = [
-  { to: '/you', label: 'You', icon: 'fa-regular fa-circle-user' },
+  { to: '/you', label: 'Your channel', icon: 'fa-regular fa-circle-user' },
   { to: '/history', label: 'History', icon: 'fa-solid fa-clock-rotate-left' },
+  { to: '/you', label: 'Playlists', icon: 'fa-solid fa-list' },
+  { to: '/you', label: 'Watch later', icon: 'fa-regular fa-clock' },
+  { to: '/you', label: 'Liked videos', icon: 'fa-regular fa-thumbs-up' },
+  { to: '/downloads', label: 'Downloads', icon: 'fa-solid fa-download' },
 ]
 
 const explore = [
+  { category: 'Trending', icon: 'fa-solid fa-fire' },
   { category: 'Music', icon: 'fa-solid fa-music' },
   { category: 'Gaming', icon: 'fa-solid fa-gamepad' },
   { category: 'News', icon: 'fa-solid fa-newspaper' },
   { category: 'Sports', icon: 'fa-solid fa-trophy' },
-  { category: 'Learning', icon: 'fa-solid fa-graduation-cap' },
-  { category: 'Fashion & Beauty', icon: 'fa-solid fa-shirt' },
-  { category: 'Comedy', icon: 'fa-solid fa-face-smile' },
-  { category: 'Technology', icon: 'fa-solid fa-microchip' },
+  { category: 'Education', icon: 'fa-solid fa-graduation-cap' },
 ]
 
 const linkClass = ({ isActive }) =>
-  `flex items-center gap-4 px-3 py-2.5 mx-2 rounded-xl text-sm font-medium transition-colors ${
-    isActive ? 'bg-[#272727] text-white' : 'text-[#F1F1F1] hover:bg-[#272727]'
+  `flex items-center gap-6 px-3 py-[10px] mx-2 rounded-xl text-[14px] font-normal transition-colors ${
+    isActive ? 'bg-[#272727] text-white font-medium' : 'text-[#f1f1f1] hover:bg-[#272727]'
   }`
 
 const LeftBarContent = () => {
   const { isSignedIn, openSignIn, user } = useAuth()
   const { setActiveCategory, setisShowLeftbar, windowResize } = useContext(ThemeContext)
   const navigate = useNavigate()
+  const [showAllSubs, setShowAllSubs] = useState(false)
+  const [showMoreYou, setShowMoreYou] = useState(false)
+  const subs = getSubscriptionsPreview()
+  const visibleSubs = showAllSubs ? subs : subs.slice(0, 5)
+  const visibleYou = showMoreYou ? youLinks : youLinks.slice(0, 4)
 
   const closeOnMobile = () => {
     if (windowResize < 1024) setisShowLeftbar(false)
   }
 
-  const goCategory = (category) => {
-    setActiveCategory(category)
-    navigate('/')
-    closeOnMobile()
-  }
-
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)] overflow-y-auto pb-8 scrollbar-hide">
-      <nav className="py-2">
+    <div className="flex flex-col h-[calc(100vh-56px)] overflow-y-auto pb-8 pr-1">
+      <nav className="pt-2 pb-1">
         {primary.map((item) => (
           <NavLink
             key={item.to}
@@ -56,29 +58,47 @@ const LeftBarContent = () => {
             className={linkClass}
             onClick={closeOnMobile}
           >
-            <i className={`${item.icon} w-5 text-center text-base`}></i>
+            <i className={`${item.icon} w-6 text-center text-[18px]`}></i>
             <span>{item.label}</span>
           </NavLink>
         ))}
       </nav>
 
-      <hr className="border-[#3F3F3F] my-2 mx-3" />
+      <hr className="border-[#3f3f3f] my-3 mx-4" />
 
-      <nav className="py-1">
-        <p className="px-5 py-2 text-sm font-semibold text-white">You</p>
-        {youLinks.map((item) => (
-          <NavLink key={item.to} to={item.to} className={linkClass} onClick={closeOnMobile}>
-            <i className={`${item.icon} w-5 text-center text-base`}></i>
+      <div>
+        <button
+          type="button"
+          onClick={() => {
+            navigate('/you')
+            closeOnMobile()
+          }}
+          className="w-[calc(100%-16px)] flex items-center gap-2 px-3 py-2 mx-2 rounded-xl text-[14px] font-medium text-white hover:bg-[#272727]"
+        >
+          You
+          <i className="fa-solid fa-chevron-right text-[10px] text-[#aaa]"></i>
+        </button>
+        {visibleYou.map((item) => (
+          <NavLink key={item.label} to={item.to} className={linkClass} onClick={closeOnMobile}>
+            <i className={`${item.icon} w-6 text-center text-[18px]`}></i>
             <span>{item.label}</span>
           </NavLink>
         ))}
-      </nav>
+        <button
+          type="button"
+          onClick={() => setShowMoreYou((v) => !v)}
+          className="w-[calc(100%-16px)] flex items-center gap-6 px-3 py-[10px] mx-2 rounded-xl text-[14px] text-[#f1f1f1] hover:bg-[#272727]"
+        >
+          <i className={`fa-solid fa-chevron-${showMoreYou ? 'up' : 'down'} w-6 text-center`}></i>
+          <span>{showMoreYou ? 'Show less' : 'Show more'}</span>
+        </button>
+      </div>
 
-      <hr className="border-[#3F3F3F] my-2 mx-3" />
+      <hr className="border-[#3f3f3f] my-3 mx-4" />
 
       {!isSignedIn ? (
-        <div className="px-5 py-3">
-          <p className="text-[13px] text-[#AAAAAA] leading-snug mb-3">
+        <div className="px-5 py-2">
+          <p className="text-[13px] text-[#aaa] leading-snug mb-3">
             Sign in to like videos, comment, and subscribe.
           </p>
           <button
@@ -91,38 +111,75 @@ const LeftBarContent = () => {
           </button>
         </div>
       ) : (
-        <div className="px-5 py-3 flex items-center gap-3">
+        <div className="px-5 py-2 flex items-center gap-3">
           <img src={user.avatar} alt="" className="w-8 h-8 rounded-full" />
           <div className="min-w-0">
             <p className="text-sm font-medium truncate">{user.name}</p>
-            <p className="text-xs text-[#AAAAAA]">Signed in</p>
+            <p className="text-xs text-[#aaa] truncate">
+              @{user.email?.split('@')[0] || user.name?.toLowerCase().replace(/\s+/g, '')}
+            </p>
           </div>
         </div>
       )}
 
-      <hr className="border-[#3F3F3F] my-2 mx-3" />
+      <hr className="border-[#3f3f3f] my-3 mx-4" />
 
-      <div className="py-1">
-        <p className="px-5 py-2 text-sm font-semibold text-white">Explore</p>
+      <div>
+        <p className="px-5 py-2 text-[14px] font-medium text-white">Subscriptions</p>
+        {visibleSubs.map((ch) => (
+          <button
+            key={ch.id}
+            type="button"
+            onClick={() => {
+              navigate(`/channel/${ch.id}`)
+              closeOnMobile()
+            }}
+            className="w-[calc(100%-16px)] flex items-center gap-4 px-3 py-2 mx-2 rounded-xl hover:bg-[#272727] text-left"
+          >
+            <img src={ch.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+            <span className="text-[14px] text-[#f1f1f1] truncate flex-1">{ch.title}</span>
+            {ch.isLive ? (
+              <span className="text-[10px] text-red-500 font-bold tracking-wide">LIVE</span>
+            ) : ch.hasNew ? (
+              <span className="w-1.5 h-1.5 rounded-full bg-[#3ea6ff]"></span>
+            ) : null}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setShowAllSubs((v) => !v)}
+          className="w-[calc(100%-16px)] flex items-center gap-6 px-3 py-[10px] mx-2 rounded-xl text-[14px] text-[#f1f1f1] hover:bg-[#272727]"
+        >
+          <i className={`fa-solid fa-chevron-${showAllSubs ? 'up' : 'down'} w-6 text-center`}></i>
+          <span>{showAllSubs ? 'Show less' : 'Show more'}</span>
+        </button>
+      </div>
+
+      <hr className="border-[#3f3f3f] my-3 mx-4" />
+
+      <div>
+        <p className="px-5 py-2 text-[14px] font-medium text-white">Explore</p>
         {explore.map((item) => (
           <button
             key={item.category}
             type="button"
-            onClick={() => goCategory(item.category)}
-            className="w-[calc(100%-16px)] flex items-center gap-4 px-3 py-2.5 mx-2 rounded-xl text-sm font-medium text-[#F1F1F1] hover:bg-[#272727] text-left"
+            onClick={() => {
+              setActiveCategory(item.category)
+              navigate('/')
+              closeOnMobile()
+            }}
+            className="w-[calc(100%-16px)] flex items-center gap-6 px-3 py-[10px] mx-2 rounded-xl text-[14px] text-[#f1f1f1] hover:bg-[#272727] text-left"
           >
-            <i className={`${item.icon} w-5 text-center text-base`}></i>
+            <i className={`${item.icon} w-6 text-center text-[18px]`}></i>
             <span>{item.category}</span>
           </button>
         ))}
       </div>
 
-      <hr className="border-[#3F3F3F] my-2 mx-3" />
-
-      <div className="px-5 py-3 text-[12px] text-[#AAAAAA] leading-relaxed">
-        <p className="mb-2">About Press Copyright Contact us Creators Advertise Developers</p>
-        <p>Terms Privacy Policy &amp; Safety How YouTube works</p>
-        <p className="mt-3 text-[#717171]">© {new Date().getFullYear()} YouTube Clone</p>
+      <div className="px-5 py-4 text-[12px] text-[#aaa] leading-relaxed">
+        <p>About Press Copyright Contact us Creators Advertise Developers</p>
+        <p className="mt-2">Terms Privacy Policy &amp; Safety How YouTubeClone works</p>
+        <p className="mt-3 text-[#717171]">© {new Date().getFullYear()} YouTubeClone</p>
       </div>
     </div>
   )

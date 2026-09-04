@@ -1,129 +1,72 @@
-import { useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ThemeContext } from '../../Hooks/ThemeContext'
-import { useWatchHistory } from '../../Hooks/HistoryContext'
-import { getChannelLogoMap, searchShorts } from '../../utils/youtubeApi'
+import { getShortsPage } from '../../data/mockCatalog'
+import { formatViews } from '../../utils/format'
 
 const Shorts = () => {
+  const { setisShowScrollbar, isShowLeftbar, windowResize } = useContext(ThemeContext)
   const [items, setItems] = useState([])
-  const [logoMap, setLogoMap] = useState({})
-  const [nextPageToken, setNextPageToken] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const { isShowLeftbar, windowResize, setisShowScrollbar } = useContext(ThemeContext)
-  const { addToHistory } = useWatchHistory()
+  const [next, setNext] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
   const sentinelRef = useRef(null)
-  const loadingMoreRef = useRef(false)
 
   useEffect(() => {
     setisShowScrollbar(false)
+    const page = getShortsPage(0, 18)
+    setItems(page.items)
+    setNext(page.next)
+    setHasMore(page.hasMore)
   }, [setisShowScrollbar])
 
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      setLoading(true)
-      const data = await searchShorts(12)
-      if (cancelled) return
-      setItems(data?.items || [])
-      setNextPageToken(data?.nextPageToken || '')
-      const ids = (data?.items || []).map((v) => v.snippet?.channelId)
-      const map = await getChannelLogoMap(ids)
-      if (!cancelled) setLogoMap(map)
-      setLoading(false)
-    }
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const loadMore = useCallback(async () => {
-    if (!nextPageToken || loadingMoreRef.current) return
-    loadingMoreRef.current = true
-    setLoadingMore(true)
-    try {
-      const data = await searchShorts(12, nextPageToken)
-      const newItems = data?.items || []
-      setItems((prev) => [...prev, ...newItems])
-      setNextPageToken(data?.nextPageToken || '')
-      const map = await getChannelLogoMap(newItems.map((v) => v.snippet?.channelId))
-      setLogoMap((prev) => ({ ...prev, ...map }))
-    } finally {
-      loadingMoreRef.current = false
-      setLoadingMore(false)
-    }
-  }, [nextPageToken])
+  const loadMore = () => {
+    if (!hasMore) return
+    const page = getShortsPage(next, 12)
+    setItems((prev) => [...prev, ...page.items])
+    setNext(page.next)
+    setHasMore(page.hasMore)
+  }
 
   useEffect(() => {
     const node = sentinelRef.current
     if (!node) return undefined
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) loadMore()
-      },
-      { rootMargin: '300px' }
-    )
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [loadMore, items.length])
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) loadMore()
+    }, { rootMargin: '400px' })
+    obs.observe(node)
+    return () => obs.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [next, hasMore])
 
   const leftPad =
-    isShowLeftbar && windowResize >= 1200 ? 'md:ml-[15rem]' : 'md:ml-[5rem]'
-
-  if (loading) {
-    return (
-      <div className={`pt-[90px] pb-20 ${leftPad} flex justify-center text-[#AAAAAA]`}>
-        Loading Shorts...
-      </div>
-    )
-  }
+    windowResize < 768 ? 'ml-0' : isShowLeftbar ? 'md:ml-[240px]' : 'md:ml-[72px]'
 
   return (
-    <div className={`pt-[80px] pb-20 px-3 ${leftPad} min-h-screen`}>
-      <h1 className="text-white text-xl font-semibold mb-4 px-1">Shorts</h1>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-        {items.map((item) => {
-          const id = item.id?.videoId
-          if (!id) return null
-          const thumb =
-            item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.high?.url
-          const logo = logoMap[item.snippet?.channelId] || '/favicon.ico'
-          return (
-            <Link
-              key={id}
-              to={`/Video/${id}`}
-              onClick={() =>
-                addToHistory({
-                  videoId: id,
-                  title: item.snippet?.title,
-                  thumbnail: thumb,
-                  channelTitle: item.snippet?.channelTitle,
-                  channelId: item.snippet?.channelId,
-                  channelLogo: logo,
-                })
-              }
-              className="group relative aspect-[9/16] rounded-xl overflow-hidden bg-[#272727]"
-            >
-              <img src={thumb} alt="" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-2">
-                <p className="text-white text-xs sm:text-sm line-clamp-2 font-medium">
-                  {item.snippet?.title}
-                </p>
-                <div className="flex items-center gap-1 mt-1">
-                  <img src={logo} alt="" className="w-5 h-5 rounded-full" />
-                  <span className="text-[#CCCCCC] text-[10px] sm:text-xs truncate">
-                    {item.snippet?.channelTitle}
-                  </span>
-                </div>
-              </div>
-            </Link>
-          )
-        })}
+    <div className={`min-h-screen pt-[90px] pb-20 px-3 sm:px-6 ${leftPad}`}>
+      <div className="flex items-center gap-2 text-white mb-5">
+        <i className="fa-solid fa-bolt text-red-500 text-2xl"></i>
+        <h1 className="text-2xl font-bold">Shorts</h1>
       </div>
-      <div ref={sentinelRef} className="h-10 flex items-center justify-center mt-4">
-        {loadingMore ? <p className="text-[#AAAAAA] text-sm">Loading more Shorts...</p> : null}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        {items.map((s) => (
+          <Link key={s.id} to={`/shorts/${s.videoId}`} className="group">
+            <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-[#272727]">
+              <img
+                src={s.thumbnails.medium.url}
+                alt=""
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
+              <div className="absolute bottom-0 p-2">
+                <p className="text-white text-xs font-medium line-clamp-2">{s.title}</p>
+                <p className="text-[#ccc] text-[11px] mt-1">{formatViews(s.views)} views</p>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+      <div ref={sentinelRef} className="h-12 flex items-center justify-center text-[#aaa] text-sm mt-4">
+        {hasMore ? 'Loading more Shorts...' : 'End of Shorts'}
       </div>
     </div>
   )

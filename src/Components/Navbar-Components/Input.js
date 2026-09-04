@@ -1,61 +1,62 @@
-import React, { useState } from "react";
-import { Link } from "react-router";
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router'
 
 const Input = ({ searchIcon, setSearchIcon }) => {
-  const [RemvoeText, setRemoveText] = useState("");
+  const [text, setText] = useState('')
+  const navigate = useNavigate()
+
+  const goSearch = () => {
+    const q = text.trim()
+    if (!q) return
+    navigate(`/result/${encodeURIComponent(q)}`)
+  }
+
   return (
     <div
-      className={`flex flex-grow  border-gray-600 border-[0.5px] rounded-[100px] ${
-        searchIcon ? "border-gray" : "border-gray"
-      } items-center overflow-hidden`}
+      className={`flex flex-grow items-stretch max-w-full ${
+        searchIcon ? 'outline outline-1 outline-[#1c62b8] rounded-full' : ''
+      }`}
     >
-      <div
-        className={`flex bg-[#121212] flex-grow 
-           ${
-             searchIcon
-               ? "border-blue-500 pl-4  rounded-tl-[23px] rounded-bl-[23px] border-[1px]"
-               : ""
-           }  items-center overflow-hidden  `}
-      >
-        <div className={` ${searchIcon ? "opacity-1" : "opacity-0"} p-2`}>
-          <i className="fa-solid text-[#FFFFFF] fa-magnifying-glass"></i>
-        </div>
-
-        <div className="flex w-[100%] bg-[#121212] items-center">
-          <input
-            onClick={(e) => {
-              setSearchIcon(true);
-              e.stopPropagation();
-            }}
-            value={RemvoeText}
-            onChange={(e) => setRemoveText(e.target.value)}
-            type="text"
-            className=" text-white w-[9px] flex-grow  bg-[#121212]  text-[16px] ring-blue-700 outline-none m-1 p-1 "
-            placeholder="Search"
-          />
-
-          <i
-            onClick={() => {
-              setRemoveText("");
-            }}
-            className={`fa-solid fa-xmark text-white  right-[25]  pr-2 hover:cursor-pointer ${
-              RemvoeText.length > 0 ? "opacity-1" : "opacity-0"
-            }`}
-          ></i>
-        </div>
+      <div className="flex flex-grow items-center bg-[#121212] border border-[#303030] rounded-l-full pl-4 min-w-0">
+        {searchIcon ? (
+          <i className="fa-solid text-[#fff] fa-magnifying-glass mr-3 opacity-90"></i>
+        ) : null}
+        <input
+          onFocus={(e) => {
+            setSearchIcon(true)
+            e.stopPropagation()
+          }}
+          onBlur={() => setSearchIcon(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') goSearch()
+          }}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          type="text"
+          className="text-white w-full bg-transparent text-base outline-none py-[9px] placeholder:text-[#888]"
+          placeholder="Search"
+        />
+        {text ? (
+          <button
+            type="button"
+            onClick={() => setText('')}
+            className="px-2 text-white hover:text-[#aaa]"
+            aria-label="Clear"
+          >
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+        ) : null}
       </div>
-      <Link
-        to={`/result/${RemvoeText}`}
-        // onSubmit={}
-        onClick={() => setRemoveText("")}
+      <button
+        type="button"
+        onClick={goSearch}
+        className="px-[22px] bg-[#222222] hover:bg-[#303030] border border-l-0 border-[#303030] rounded-r-full"
+        aria-label="Search"
       >
-        <div className="px-4 hover:cursor-pointer hover:bg-[#3D3D3D] py-2 bg-[#222222]">
-          {" "}
-          <i className="fa-solid fa-magnifying-glass  text-[#EFEFEF]"></i>
-        </div>
-      </Link>
+        <i className="fa-solid fa-magnifying-glass text-[#f1f1f1]"></i>
+      </button>
     </div>
-  );
-};
+  )
+}
 
-export default Input;
+export default Input

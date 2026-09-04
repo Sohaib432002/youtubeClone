@@ -15,11 +15,18 @@ export const AuthProvider = ({ children }) => {
   const [showSignIn, setShowSignIn] = useState(false)
 
   const signIn = ({ name, email }) => {
+    const cleanName = name.trim() || 'YouTubeClone User'
+    const handle = `@${(email || cleanName)
+      .split('@')[0]
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '')
+      .slice(0, 24) || 'user'}`
     const next = {
-      name: name.trim() || 'YouTube User',
+      name: cleanName,
       email: (email || '').trim(),
+      handle,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-        name.trim() || 'U'
+        cleanName
       )}&background=ff0000&color=fff`,
       signedInAt: new Date().toISOString(),
     }

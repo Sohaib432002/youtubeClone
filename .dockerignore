@@ -1,0 +1,12 @@
+node_modules
+.git
+.gitignore
+.env
+.env.*
+backend/venv
+backend/db.sqlite3
+backend/**/__pycache__
+backend/staticfiles
+build
+*.md
+.DS_Store

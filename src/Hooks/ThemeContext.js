@@ -1,20 +1,12 @@
 import React, { createContext, useEffect, useState } from 'react'
+import { CATEGORY_LIST } from '../data/mockCatalog'
 
 export const ThemeContext = createContext()
 
-export const CATEGORIES = [
-  { id: 'All', query: 'trending' },
-  { id: 'Music', query: 'music' },
-  { id: 'Live', query: 'live stream' },
-  { id: 'Gaming', query: 'gaming' },
-  { id: 'News', query: 'news' },
-  { id: 'Sports', query: 'sports' },
-  { id: 'Learning', query: 'education tutorial' },
-  { id: 'Fashion & Beauty', query: 'fashion beauty' },
-  { id: 'Comedy', query: 'comedy funny' },
-  { id: 'Technology', query: 'technology' },
-  { id: 'Movies', query: 'movie trailer' },
-]
+export const CATEGORIES = CATEGORY_LIST.map((id) => ({
+  id,
+  query: id === 'All' ? 'trending' : id.toLowerCase(),
+}))
 
 export const ThemeProvider = ({ children }) => {
   const [isShowLeftbar, setisShowLeftbar] = useState(false)
@@ -23,6 +15,7 @@ export const ThemeProvider = ({ children }) => {
   )
   const [isShowScrollbar, setisShowScrollbar] = useState(true)
   const [activeCategory, setActiveCategory] = useState('All')
+  const [miniSidebar, setMiniSidebar] = useState(true)
 
   useEffect(() => {
     const onResize = () => setwindowResize(window.innerWidth)
@@ -30,9 +23,7 @@ export const ThemeProvider = ({ children }) => {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  const toggleLeftbar = () => {
-    setisShowLeftbar((prev) => !prev)
-  }
+  const toggleLeftbar = () => setisShowLeftbar((prev) => !prev)
 
   const categoryQuery =
     CATEGORIES.find((c) => c.id === activeCategory)?.query || 'trending'
@@ -50,6 +41,8 @@ export const ThemeProvider = ({ children }) => {
         setActiveCategory,
         categoryQuery,
         categories: CATEGORIES,
+        miniSidebar,
+        setMiniSidebar,
       }}
     >
       {children}

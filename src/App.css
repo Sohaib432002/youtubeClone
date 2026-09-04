@@ -203,3 +203,12 @@ body {
     padding-bottom: 56px;
   }
 }
+
+body.yt-light {
+  background: #fff !important;
+  color: #0f0f0f;
+}
+
+body.yt-dark {
+  background: #0f0f0f;
+}

@@ -2,6 +2,7 @@ import { useContext, useEffect, useState } from 'react'
 import { Outlet, useParams } from 'react-router'
 import { ThemeContext } from '../Hooks/ThemeContext'
 import { getChannelsByIds, searchVideos } from '../utils/youtubeApi'
+import { CHANNELS, VIDEOS, toSearchItem } from '../data/mockCatalog'
 import ChannelBanner from './ChannelDetails-Components/ChannelBanner'
 import ChannelIntro from './ChannelDetails-Components/ChannelIntro'
 import OptionsSelection from './ChannelDetails-Components/OptionsSelection'
@@ -19,10 +20,42 @@ const ChannelDetails = () => {
 
   useEffect(() => {
     let cancelled = false
-    const id = channelId || 'UC_x5XG1OV2P6uZZ5FSM9Ttw'
+    const id = channelId || 'ch_campusx'
 
     const load = async () => {
       setLoading(true)
+      const local = CHANNELS.find((c) => c.id === id)
+      if (local) {
+        const fake = {
+          id: local.id,
+          snippet: {
+            title: local.title,
+            customUrl: local.handle,
+            description: `Welcome to ${local.title}. ${local.subscribers} subscribers.`,
+            thumbnails: {
+              high: { url: local.avatar },
+              medium: { url: local.avatar },
+              default: { url: local.avatar },
+            },
+          },
+          statistics: {
+            subscriberCount: local.subscribers,
+            videoCount: String(VIDEOS.filter((v) => v.channelId === local.id).length),
+          },
+          brandingSettings: {
+            channel: { title: local.title },
+            image: {},
+          },
+        }
+        const vids = VIDEOS.filter((v) => v.channelId === local.id).map(toSearchItem)
+        if (!cancelled) {
+          setChannelData(fake)
+          setChannelVideos(vids)
+          setLoading(false)
+        }
+        return
+      }
+
       try {
         const data = await getChannelsByIds([id])
         if (cancelled) return

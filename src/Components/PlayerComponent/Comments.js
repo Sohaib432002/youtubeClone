@@ -1,112 +1,176 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Commenter from './subComponents/Commenter'
 import CommentSkel from './subComponents/CommentSkel'
+import { useAuth } from '../../Hooks/AuthContext'
+import { formatViews } from '../../utils/format'
 
 const Comments = ({ fetchData, commentData }) => {
+  const { user, isSignedIn, openSignIn } = useAuth()
   const [isCommenting, setIsCommenting] = useState(false)
   const [sortOptions, setSortOptions] = useState(false)
+  const [sortBy, setSortBy] = useState('top')
   const [writeComment, setWriteComment] = useState('')
-  const [commentContent, setCommentContent] = useState('')
+  const [localComments, setLocalComments] = useState([])
 
-  // Format numbers (1.2K, 3.4M, etc.)
-  const formatNumber = (num) => {
-    if (!num) return '0'
-    if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B'
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
-    if (num >= 1_000) return (num / 1_000).toFixed(1).replace(/\.0$/, '') + 'K'
-    return num.toString()
+  useEffect(() => {
+    setLocalComments([])
+  }, [fetchData?.items?.[0]?.id])
+
+  const channelName = user?.name || 'YouTubeClone User'
+  const channelId = user?.handle || `@${(user?.name || 'user').toLowerCase().replace(/\s+/g, '')}`
+
+  const baseItems = commentData?.items || []
+  const mergedItems = [
+    ...localComments,
+    ...baseItems,
+  ]
+
+  const sortedItems = [...mergedItems].sort((a, b) => {
+    if (sortBy === 'newest') {
+      const da = new Date(a.snippet?.topLevelComment?.snippet?.publishedAt || 0)
+      const db = new Date(b.snippet?.topLevelComment?.snippet?.publishedAt || 0)
+      return db - da
+    }
+    const la = a.snippet?.topLevelComment?.snippet?.likeCount || 0
+    const lb = b.snippet?.topLevelComment?.snippet?.likeCount || 0
+    return lb - la
+  })
+
+  const startComment = () => {
+    if (!isSignedIn) {
+      openSignIn()
+      return
+    }
+    setIsCommenting(true)
   }
 
-  // Show skeleton if no data
-  if (!commentData || !commentData.items || commentData.items.length === 0) {
+  const postComment = () => {
+    if (!isSignedIn) {
+      openSignIn()
+      return
+    }
+    if (!writeComment.trim()) return
+    const entry = {
+      id: `local_${Date.now()}`,
+      snippet: {
+        topLevelComment: {
+          snippet: {
+            authorDisplayName: channelName,
+            authorProfileImageUrl: user.avatar,
+            textDisplay: writeComment.trim(),
+            publishedAt: new Date().toISOString(),
+            likeCount: 0,
+            authorChannelId: channelId,
+          },
+        },
+      },
+    }
+    setLocalComments((prev) => [entry, ...prev])
+    setWriteComment('')
+    setIsCommenting(false)
+  }
+
+  if (!commentData) {
     return <CommentSkel commentData={commentData} />
   }
 
-  return (
-    <div className="max-w-[1227px] player text-[20px] text-white rounded-[10px] mx-2 sm:mx-4 md:ml-8 lg:ml-12">
-      {/* Header with sort */}
-      <div className="flex relative text-[16px] font-black p-5 items-center">
-        <h1 className="mr-5 text-[20px]">
-          {formatNumber(fetchData?.items?.[0]?.statistics?.commentCount)} Comments
-        </h1>
+  const count =
+    Number(fetchData?.items?.[0]?.statistics?.commentCount || 0) + localComments.length
 
-        <span
-          className="cursor-pointer flex items-center"
+  return (
+    <div className="max-w-[1227px] player text-white rounded-[10px] mx-2 sm:mx-4 md:ml-6 lg:ml-0 mt-4">
+      <div className="flex relative text-[16px] p-1 sm:p-2 items-center gap-4">
+        <h2 className="text-xl font-bold">{formatViews(count)} Comments</h2>
+        <button
+          type="button"
+          className="cursor-pointer flex items-center gap-2 text-sm font-medium"
           onClick={() => setSortOptions(!sortOptions)}
         >
-          <i className="fa-solid fa-align-left text-[16px] mx-2"></i>
+          <i className="fa-solid fa-align-left"></i>
           Sort by
-        </span>
-
-        {sortOptions && (
-          <div className="absolute z-30 left-[171px] top-[55px] bg-[#272727] rounded-lg shadow-lg">
-            <div className="flex flex-col cursor-pointer my-2">
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="px-4 py-2 flex items-center hover:bg-[#414140]"
-              >
-                <p>Top Comment</p>
-              </div>
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="px-4 py-2 flex items-center hover:bg-[#414140]"
-              >
-                <p>Newest Comment</p>
-              </div>
-            </div>
+        </button>
+        {sortOptions ? (
+          <div className="absolute z-30 left-28 top-10 bg-[#282828] rounded-xl shadow-lg overflow-hidden min-w-[180px]">
+            <button
+              type="button"
+              className={`w-full text-left px-4 py-2.5 hover:bg-[#3f3f3f] ${
+                sortBy === 'top' ? 'bg-[#3f3f3f]' : ''
+              }`}
+              onClick={() => {
+                setSortBy('top')
+                setSortOptions(false)
+              }}
+            >
+              Top comments
+            </button>
+            <button
+              type="button"
+              className={`w-full text-left px-4 py-2.5 hover:bg-[#3f3f3f] ${
+                sortBy === 'newest' ? 'bg-[#3f3f3f]' : ''
+              }`}
+              onClick={() => {
+                setSortBy('newest')
+                setSortOptions(false)
+              }}
+            >
+              Newest first
+            </button>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {/* Comment Input Section */}
-      <div className="flex flex-col text-[14px]">
-        {isCommenting ? (
+      <div className="flex flex-col text-sm mt-4">
+        {isCommenting && isSignedIn ? (
           <div>
-            <b>Commenting as</b>
-            <div className="commenterIdentity my-3 flex items-center">
-              <img alt="profile" src="../../favicon.ico" width={50} className="rounded-full" />
-              <div className="flex mx-3 flex-col">
-                <b>Sohaib Maqsood</b>
-                <b>@ChannelId</b>
+            <p className="text-[#aaa] text-xs mb-2">Commenting as</p>
+            <div className="flex items-center gap-3 mb-3">
+              <img
+                alt="profile"
+                src={user.avatar}
+                className="w-10 h-10 rounded-full object-cover"
+              />
+              <div className="flex flex-col min-w-0">
+                <span className="font-semibold text-base">{channelName}</span>
+                <span className="text-[#aaa] text-xs">{channelId}</span>
               </div>
-              <div
-                onClick={() => alert('Sorry, this feature is under development.')}
-                className="edit p-3 mx-2 cursor-pointer rounded-full hover:bg-[#414140]"
+              <button
+                type="button"
+                className="p-2 rounded-full hover:bg-[#272727] text-[#aaa]"
+                title="Edit profile"
+                onClick={openSignIn}
               >
-                <i className="fa-solid fa-pencil"></i>
-              </div>
+                <i className="fa-solid fa-pencil text-sm"></i>
+              </button>
             </div>
 
             <input
               type="text"
               value={writeComment}
               onChange={(e) => setWriteComment(e.target.value)}
-              className="w-full px-3 py-1 bg-transparent outline-none border-b"
+              className="w-full px-1 py-2 bg-transparent outline-none border-b border-[#3f3f3f] focus:border-white text-base"
               placeholder="Write a comment..."
+              autoFocus
             />
 
-            <div className="flex justify-end my-2">
+            <div className="flex justify-end gap-2 my-3">
               <button
+                type="button"
                 onClick={() => {
                   setWriteComment('')
                   setIsCommenting(false)
                 }}
-                className="px-4 py-2 mx-1 rounded-full bg-[#272727] hover:bg-[#414140]"
+                className="px-4 py-2 rounded-full bg-[#272727] hover:bg-[#3f3f3f] text-sm font-medium"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  if (writeComment.trim()) {
-                    setCommentContent(writeComment)
-                    setWriteComment('')
-                    setIsCommenting(false)
-                  }
-                }}
-                className={`px-4 py-2 mx-1 rounded-full ${
+                type="button"
+                onClick={postComment}
+                disabled={!writeComment.trim()}
+                className={`px-4 py-2 rounded-full text-sm font-medium ${
                   writeComment.trim()
-                    ? 'bg-[#272727] hover:bg-[#414140] cursor-pointer'
-                    : 'bg-gray-700 text-[#6C6C6C] cursor-not-allowed'
+                    ? 'bg-[#3ea6ff] text-black hover:bg-[#65b8ff]'
+                    : 'bg-[#272727] text-[#717171] cursor-not-allowed'
                 }`}
               >
                 Comment
@@ -114,26 +178,34 @@ const Comments = ({ fetchData, commentData }) => {
             </div>
           </div>
         ) : (
-          <div className="flex items-center">
-            <img alt="profile" src="../../favicon.ico" className="rounded-full" width={50} />
-            <span
-              onClick={() => setIsCommenting(true)}
-              className="bg-transparent cursor-pointer ml-5 border-b w-full outline-none text-gray-400"
+          <div className="flex items-center gap-3">
+            <img
+              alt="profile"
+              src={isSignedIn ? user.avatar : '/favicon.ico'}
+              className="rounded-full object-cover w-10 h-10"
+            />
+            <button
+              type="button"
+              onClick={startComment}
+              className="bg-transparent text-left cursor-pointer border-b border-[#3f3f3f] w-full outline-none text-[#aaa] py-2 hover:border-[#717171]"
             >
-              Add a comment
-            </span>
+              {isSignedIn ? 'Add a comment...' : 'Sign in to comment'}
+            </button>
           </div>
         )}
       </div>
 
-      {/* Comment List */}
-      <Commenter
-        commentContent={commentContent}
-        setWriteComment={setWriteComment}
-        setComment={setIsCommenting}
-        writeComment={writeComment}
-        commentData={commentData}
-      />
+      {sortedItems.length === 0 ? (
+        <p className="text-[#aaa] text-sm py-8">No comments yet. Be the first to comment.</p>
+      ) : (
+        <Commenter
+          commentContent={''}
+          setWriteComment={setWriteComment}
+          setComment={setIsCommenting}
+          writeComment={writeComment}
+          commentData={{ items: sortedItems }}
+        />
+      )}
     </div>
   )
 }
