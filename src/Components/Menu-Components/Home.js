@@ -32,8 +32,13 @@ function fullThumb(item) {
 const PRE_SHORTS_COUNT = 6
 
 const Home = () => {
-  const { windowResize, setisShowScrollbar, activeCategory, isDesktopSidebar } =
-    useContext(ThemeContext)
+  const {
+    windowResize,
+    setisShowScrollbar,
+    activeCategory,
+    categoryQuery,
+    isDesktopSidebar,
+  } = useContext(ThemeContext)
   const { prefs } = usePrefs()
 
   const filterRestricted = useCallback((list) => {
@@ -44,6 +49,16 @@ const Home = () => {
       return !blocked.some((b) => t.includes(b))
     })
   }, [prefs.restricted])
+
+  const dedupeByVideoId = useCallback((list) => {
+    const seen = new Set()
+    return list.filter((v) => {
+      const id = v?.id?.videoId || v?.meta?.videoId || v?.videoId || v?.catalogId
+      if (!id || seen.has(id)) return false
+      seen.add(id)
+      return true
+    })
+  }, [])
 
   const [items, setItems] = useState([])
   const [logoMap, setLogoMap] = useState({})
@@ -60,20 +75,23 @@ const Home = () => {
     setisShowScrollbar(true)
   }, [setisShowScrollbar])
 
+  // Shorts rail follows the selected category and never repeats the same clip
   useEffect(() => {
-    setShorts(getShortsPage(0, 24).items)
-  }, [])
+    setShorts(getShortsPage(0, 24, activeCategory).items)
+  }, [activeCategory])
 
   useEffect(() => {
     let cancelled = false
     const load = async () => {
       setLoading(true)
       setPage(0)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+
       const local = getVideosByCategory(activeCategory, 0, 24)
       let list = filterRestricted(local.items.filter((v) => !isShortLike(v)))
 
-      // Prefer your original FetchedData feed on Home / Trending
-      if (activeCategory === 'All' || activeCategory === 'Trending') {
+      // FetchedData only seeds the default Home feed — never overrides category chips
+      if (activeCategory === 'All') {
         const original = (fetchedData?.items || [])
           .map((it) => {
             const videoId =
@@ -102,10 +120,11 @@ const Home = () => {
         }
       }
 
-      // Paint local/catalog videos immediately — never wait on YouTube API
+      list = dedupeByVideoId(list)
+
       if (!cancelled) {
         setItems(list)
-        setHasMore(local.hasMore || list.length >= 20)
+        setHasMore(local.hasMore || list.length >= 12)
         const localLogos = {}
         list.forEach((v) => {
           if (v.meta?.channelAvatar) localLogos[v.snippet.channelId] = v.meta.channelAvatar
@@ -114,57 +133,75 @@ const Home = () => {
         setLoading(false)
       }
 
-      if (activeCategory === 'All' || activeCategory === 'Trending') {
-        try {
-          const live = await searchVideos(
-            activeCategory === 'All' ? 'technology tutorial' : 'trending news',
-            16,
-            { videoDuration: 'medium' }
-          )
-          if (cancelled) return
-          if (live?.items?.length) {
-            const mapped = live.items
-              .map((it) => {
-                const videoId =
-                  (typeof it.id === 'string' && it.id) ||
-                  it.id?.videoId ||
-                  it.meta?.videoId
-                if (!videoId || !it.snippet) return null
-                return {
-                  ...it,
-                  id: { kind: 'youtube#video', videoId },
-                  snippet: {
-                    ...it.snippet,
-                    thumbnails: {
-                      ...it.snippet.thumbnails,
-                      medium: { url: fullThumb({ ...it, id: { videoId } }) },
-                      high: { url: fullThumb({ ...it, id: { videoId } }) },
-                    },
+      // Live search uses the chip's query so Music/Gaming/etc. actually change
+      const liveQuery =
+        activeCategory === 'All'
+          ? 'popular videos'
+          : activeCategory === 'Trending'
+            ? 'trending'
+            : categoryQuery || activeCategory
+
+      try {
+        const live = await searchVideos(liveQuery, 20, {
+          videoDuration: activeCategory === 'Live' ? 'any' : 'medium',
+        })
+        if (cancelled) return
+        if (live?.items?.length) {
+          const mapped = live.items
+            .map((it) => {
+              const videoId =
+                (typeof it.id === 'string' && it.id) ||
+                it.id?.videoId ||
+                it.meta?.videoId
+              if (!videoId || !it.snippet) return null
+              return {
+                ...it,
+                id: { kind: 'youtube#video', videoId },
+                snippet: {
+                  ...it.snippet,
+                  thumbnails: {
+                    ...it.snippet.thumbnails,
+                    medium: { url: fullThumb({ ...it, id: { videoId } }) },
+                    high: { url: fullThumb({ ...it, id: { videoId } }) },
                   },
-                  meta: {
-                    videoId,
-                    channelAvatar: null,
-                    duration: '',
-                    views: undefined,
-                    verified: false,
-                    isShort: false,
-                  },
-                }
-              })
-              .filter((it) => it && !isShortLike(it))
+                },
+                meta: {
+                  videoId,
+                  channelAvatar: null,
+                  duration: '',
+                  views: undefined,
+                  verified: false,
+                  isShort: false,
+                  category: activeCategory,
+                },
+              }
+            })
+            .filter((it) => it && !isShortLike(it))
+
+          // Category chips: prefer live matches, then catalog for that category
+          if (activeCategory === 'All') {
             const ids = new Set(mapped.map((m) => m.id?.videoId))
-            list = filterRestricted([
-              ...mapped,
-              ...local.items.filter((x) => !ids.has(x.id?.videoId) && !isShortLike(x)),
-            ])
-            if (!cancelled) {
-              setItems(list)
-              setHasMore(local.hasMore || list.length >= 20)
-            }
+            list = filterRestricted(
+              dedupeByVideoId([
+                ...mapped,
+                ...list.filter((x) => !ids.has(x.id?.videoId)),
+              ])
+            )
+          } else {
+            list = filterRestricted(
+              dedupeByVideoId([
+                ...mapped,
+                ...local.items.filter((v) => !isShortLike(v)),
+              ])
+            )
           }
-        } catch (_) {
-          /* keep local */
+          if (!cancelled) {
+            setItems(list)
+            setHasMore(local.hasMore || list.length >= 12)
+          }
         }
+      } catch (_) {
+        /* keep catalog */
       }
 
       try {
@@ -186,7 +223,7 @@ const Home = () => {
     return () => {
       cancelled = true
     }
-  }, [activeCategory, filterRestricted])
+  }, [activeCategory, categoryQuery, filterRestricted, dedupeByVideoId])
 
   const loadMore = async () => {
     if (loadingRef.current || !hasMore) return
@@ -337,7 +374,9 @@ const Home = () => {
         </div>
       ) : (
         <>
-          <h2 className="text-white text-lg font-semibold mb-5">Recommended</h2>
+          <h2 className="text-white text-lg font-semibold mb-5">
+            {activeCategory === 'All' ? 'Recommended' : activeCategory}
+          </h2>
 
           {topVideos.length ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8">

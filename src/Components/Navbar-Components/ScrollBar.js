@@ -1,10 +1,12 @@
 import { useContext, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ThemeContext } from '../../Hooks/ThemeContext'
 
 const ScrollBar = ({ leftBar }) => {
   const { activeCategory, setActiveCategory, categories, isDesktopSidebar } =
     useContext(ThemeContext)
   const scrollerRef = useRef(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const el = scrollerRef.current?.querySelector('[data-active="true"]')
@@ -39,7 +41,10 @@ const ScrollBar = ({ leftBar }) => {
               key={chip.id}
               type="button"
               data-active={active ? 'true' : 'false'}
-              onClick={() => setActiveCategory(chip.id)}
+              onClick={() => {
+                setActiveCategory(chip.id)
+                navigate('/')
+              }}
               className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                 active
                   ? 'bg-white text-[#0f0f0f]'

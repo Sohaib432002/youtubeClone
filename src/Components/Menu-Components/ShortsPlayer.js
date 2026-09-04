@@ -15,15 +15,24 @@ const ShortsPlayer = () => {
   const [active, setActive] = useState(0)
   const [dislikes, setDislikes] = useState({})
 
+  const uniqueShorts = useMemo(() => {
+    const seen = new Set()
+    return SHORTS.filter((s) => {
+      if (seen.has(s.videoId)) return false
+      seen.add(s.videoId)
+      return true
+    })
+  }, [])
+
   const startIndex = useMemo(() => {
-    const idx = SHORTS.findIndex((s) => s.videoId === id || s.id === id)
+    const idx = uniqueShorts.findIndex((s) => s.videoId === id || s.id === id)
     return idx >= 0 ? idx : 0
-  }, [id])
+  }, [id, uniqueShorts])
 
   const ordered = useMemo(() => {
-    if (!startIndex) return SHORTS
-    return [...SHORTS.slice(startIndex), ...SHORTS.slice(0, startIndex)]
-  }, [startIndex])
+    if (!startIndex) return uniqueShorts
+    return [...uniqueShorts.slice(startIndex), ...uniqueShorts.slice(0, startIndex)]
+  }, [startIndex, uniqueShorts])
 
   useEffect(() => {
     setActive(0)

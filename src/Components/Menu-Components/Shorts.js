@@ -22,7 +22,10 @@ const Shorts = () => {
   const loadMore = () => {
     if (!hasMore) return
     const page = getShortsPage(next, 12)
-    setItems((prev) => [...prev, ...page.items])
+    setItems((prev) => {
+      const seen = new Set(prev.map((s) => s.videoId))
+      return [...prev, ...page.items.filter((s) => !seen.has(s.videoId))]
+    })
     setNext(page.next)
     setHasMore(page.hasMore)
   }

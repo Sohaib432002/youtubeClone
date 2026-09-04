@@ -201,12 +201,51 @@ const YT_IDS = [
   'M7lc1UVf-VE',
   'ysz5S6PUM-U',
   'WsptdUFthWI',
-  'aqz-KE-bpKQ',
-  'LXb3EKWsInQ',
-  'sGPrA0aG0y0',
   'fLexgOxsZu0',
   'tgbNymZ7vqY',
   'kXYiU_JCYtU',
+  'lTTajzrSkCw',
+  'Zi_XLOBDo_Y',
+  'ktvTqknDobU',
+  'fNk_zzaMoSs',
+  'RBumgq5yVrA',
+  'E7wq4O6DVes',
+  'V-_O7nl0Ii0',
+  'IlNAJl36-1w',
+  'DWcJFNfaw9c',
+  'QH2-TGUlwu4',
+  'astISOttCQ0',
+  'L_LUpnjgPso',
+  'ZbZSe6N_BXs',
+  'cdwal5Kw3Fc',
+  'iik25wqIuFo',
+]
+
+const SHORT_CAPTIONS = [
+  'POV you finally fix the bug 🔥',
+  'Gym tip that changed everything',
+  'Quick React trick in 20 seconds',
+  'Street food you must try',
+  'Travel hack nobody talks about',
+  'One AI prompt = insane results',
+  'Math shortcut for exams',
+  'Day in the life of a developer',
+  'This CSS trick is underrated',
+  '30-second morning stretch',
+  'Budget travel packing list',
+  'Why your API is slow',
+  'Clean your desk in 15 seconds',
+  'Guitar riff you need to learn',
+  'Cooking rice the right way',
+  'Football skill move tutorial',
+  ' ast that actually works',
+  'Hidden feature in Chrome',
+  'Study with me — focus timer',
+  'Makeup hack for busy mornings',
+  'Python one-liner magic',
+  'NBA highlight of the week',
+  'Science fact that blew my mind',
+  'Startup pitch in 20 seconds',
 ]
 
 const TITLES = [
@@ -248,6 +287,36 @@ const TITLES = [
   'Sports Analysis — Match Breakdown',
 ]
 
+const CATEGORY_TITLE_PREFIX = {
+  Trending: 'Trending Now',
+  Music: 'Music Mix',
+  Gaming: 'Gaming',
+  Live: 'Live',
+  News: 'News Update',
+  Sports: 'Sports Highlights',
+  Movies: 'Movie Recap',
+  Comedy: 'Comedy',
+  Education: 'Learn',
+  Technology: 'Tech',
+  Programming: 'Code',
+  Science: 'Science',
+  Mathematics: 'Math',
+  AI: 'AI Explained',
+  'Data Science': 'Data Science',
+  Business: 'Business',
+  Finance: 'Finance Tips',
+  Podcasts: 'Podcast',
+  Entertainment: 'Entertainment',
+  Travel: 'Travel',
+  Food: 'Food',
+  Fitness: 'Fitness',
+  Fashion: 'Fashion',
+  Tutorials: 'Tutorial',
+  Documentary: 'Documentary',
+  History: 'History',
+  'Recently Uploaded': 'Just Uploaded',
+}
+
 function daysAgo(n) {
   const d = new Date()
   d.setDate(d.getDate() - n)
@@ -262,72 +331,85 @@ function formatDuration(totalSec) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+/** Build enough unique videos per category so chips actually change the feed */
 function buildVideos() {
   const cats = CATEGORY_LIST.filter((c) => c !== 'All')
-  return Array.from({ length: 72 }, (_, i) => {
-    const channel = CHANNELS[i % CHANNELS.length]
-    const videoId = YT_IDS[i % YT_IDS.length]
-    const category = cats[i % cats.length]
-    const views = Math.floor(12000 + ((i * 7919) % 9000000))
-    const durationSec = 90 + ((i * 137) % 4200)
-    const publishedAt = daysAgo((i * 3) % 900)
-    const thumb = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
-    return {
-      id: `vid_${i}_${videoId}`,
-      videoId,
-      title: `${TITLES[i % TITLES.length]}${i > TITLES.length ? ` (#${i})` : ''}`,
-      description: `${TITLES[i % TITLES.length]}\n\nCategory: ${category}\nSubscribe to ${channel.title} for more.\n\n#${category.replace(/\s/g, '')} #YouTubeClone`,
-      channelId: channel.id,
-      channelTitle: channel.title,
-      channelAvatar: channel.avatar,
-      verified: channel.verified,
-      category,
-      views,
-      likes: Math.floor(views * 0.04),
-      comments: Math.floor(views * 0.002),
-      publishedAt,
-      duration: formatDuration(durationSec),
-      durationSec,
-      isShort: false,
-      downloadable: i % 3 === 0,
-      downloadUrl: i % 3 === 0 ? SAMPLE_MP4 : null,
-      thumbnails: {
-        default: { url: thumb },
-        medium: { url: thumb },
-        high: { url: thumb },
-      },
+  const perCat = 10
+  const list = []
+  let n = 0
+  cats.forEach((category) => {
+    for (let j = 0; j < perCat; j += 1) {
+      const channel = CHANNELS[n % CHANNELS.length]
+      const videoId = YT_IDS[n % YT_IDS.length]
+      const views = Math.floor(12000 + ((n * 7919) % 9000000))
+      const durationSec = 90 + ((n * 137) % 4200)
+      const publishedAt = daysAgo(
+        category === 'Recently Uploaded' ? n % 14 : (n * 3) % 900
+      )
+      const thumb = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+      const prefix = CATEGORY_TITLE_PREFIX[category] || category
+      const baseTitle = TITLES[n % TITLES.length]
+      list.push({
+        id: `vid_${category.replace(/\s/g, '_')}_${j}_${videoId}`,
+        videoId,
+        title: `${prefix}: ${baseTitle}${j > 0 ? ` · Part ${j + 1}` : ''}`,
+        description: `${baseTitle}\n\nCategory: ${category}\nSubscribe to ${channel.title} for more.\n\n#${category.replace(/\s/g, '')} #YouTubeClone`,
+        channelId: channel.id,
+        channelTitle: channel.title,
+        channelAvatar: channel.avatar,
+        verified: channel.verified,
+        category,
+        views: category === 'Trending' ? views + 800000 : views,
+        likes: Math.floor(views * 0.04),
+        comments: Math.floor(views * 0.002),
+        publishedAt,
+        duration: formatDuration(durationSec),
+        durationSec,
+        isShort: false,
+        downloadable: n % 3 === 0,
+        downloadUrl: n % 3 === 0 ? SAMPLE_MP4 : null,
+        thumbnails: {
+          default: { url: thumb },
+          medium: { url: thumb },
+          high: { url: thumb },
+        },
+      })
+      n += 1
     }
   })
+  return list
 }
 
 function buildShorts() {
-  return Array.from({ length: 48 }, (_, i) => {
+  const list = []
+  const seenIds = new Set()
+  for (let i = 0; i < 60; i += 1) {
     const channel = CHANNELS[i % CHANNELS.length]
-    const videoId = YT_IDS[(i + 5) % YT_IDS.length]
+    // Walk YT_IDS with a stride so shorts don't mirror the long-form feed order
+    let videoId = YT_IDS[(i * 3 + 7) % YT_IDS.length]
+    let guard = 0
+    while (seenIds.has(videoId) && guard < YT_IDS.length) {
+      videoId = YT_IDS[(i * 3 + 7 + guard + 1) % YT_IDS.length]
+      guard += 1
+    }
+    seenIds.add(videoId)
     const views = Math.floor(50000 + ((i * 9973) % 12000000))
     const publishedAt = daysAgo(i % 60)
     const thumb = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
-    const captions = [
-      'POV you finally fix the bug 🔥',
-      'Gym tip that changed everything',
-      'Quick React trick in 20 seconds',
-      'Street food you must try',
-      'Travel hack nobody talks about',
-      'One AI prompt = insane results',
-      'Math shortcut for exams',
-      'Day in the life of a developer',
-    ]
-    return {
+    const caption = SHORT_CAPTIONS[i % SHORT_CAPTIONS.length]
+    const cats = CATEGORY_LIST.filter((c) => !['All', 'Live', 'Recently Uploaded'].includes(c))
+    const category = cats[i % cats.length]
+    list.push({
       id: `short_${i}_${videoId}`,
       videoId,
-      title: captions[i % captions.length],
-      description: captions[i % captions.length],
+      title: `${caption}${i >= SHORT_CAPTIONS.length ? ` #${i + 1}` : ''}`,
+      description: `${caption}\n#shorts #${category.replace(/\s/g, '')}`,
       channelId: channel.id,
       channelTitle: channel.title,
       channelAvatar: channel.avatar,
       channelHandle: channel.handle,
       verified: channel.verified,
-      category: 'Shorts',
+      category,
       views,
       likes: Math.floor(views * 0.08),
       comments: Math.floor(20 + (i % 400)),
@@ -343,8 +425,9 @@ function buildShorts() {
         medium: { url: thumb },
         high: { url: thumb },
       },
-    }
-  })
+    })
+  }
+  return list
 }
 
 export const VIDEOS = buildVideos()
@@ -376,17 +459,33 @@ export function toSearchItem(v) {
 }
 
 export function getVideosByCategory(category = 'All', page = 0, pageSize = 24) {
-  const filtered =
-    !category || category === 'All'
-      ? VIDEOS
-      : VIDEOS.filter(
+  let filtered = VIDEOS
+  if (category && category !== 'All') {
+    const key = category.toLowerCase()
+    if (category === 'Trending') {
+      filtered = [...VIDEOS]
+        .filter((v) => v.category === 'Trending' || v.views > 400000)
+        .sort((a, b) => b.views - a.views)
+    } else if (category === 'Recently Uploaded') {
+      filtered = [...VIDEOS]
+        .filter(
           (v) =>
-            v.category.toLowerCase() === category.toLowerCase() ||
-            v.title.toLowerCase().includes(category.toLowerCase()) ||
-            (category === 'Trending' && v.views > 500000) ||
-            (category === 'Recently Uploaded' &&
-              Date.now() - new Date(v.publishedAt).getTime() < 1000 * 60 * 60 * 24 * 30)
+            v.category === 'Recently Uploaded' ||
+            Date.now() - new Date(v.publishedAt).getTime() < 1000 * 60 * 60 * 24 * 30
         )
+        .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+    } else {
+      // Exact category first — avoids every chip showing the same mixed feed
+      const exact = VIDEOS.filter((v) => v.category.toLowerCase() === key)
+      filtered = exact.length
+        ? exact
+        : VIDEOS.filter(
+            (v) =>
+              v.title.toLowerCase().includes(key) ||
+              v.description.toLowerCase().includes(`category: ${key}`)
+          )
+    }
+  }
   const start = page * pageSize
   const slice = filtered.slice(start, start + pageSize)
   return {
@@ -446,11 +545,30 @@ export function getRelated(videoId, limit = 20) {
   return unique.map(toSearchItem)
 }
 
-export function getShortsPage(start = 0, count = 12) {
-  const slice = SHORTS.slice(start, start + count)
+export function getShortsPage(start = 0, count = 12, category = 'All') {
+  let pool = SHORTS
+  if (category && category !== 'All' && category !== 'Shorts') {
+    const key = category.toLowerCase()
+    const matched = SHORTS.filter(
+      (s) =>
+        s.category.toLowerCase() === key ||
+        s.title.toLowerCase().includes(key) ||
+        s.description.toLowerCase().includes(key)
+    )
+    pool = matched.length >= 6 ? matched : SHORTS
+  }
+  // Deduplicate by videoId so the rail never shows the same clip twice
+  const unique = []
+  const seen = new Set()
+  for (const s of pool) {
+    if (seen.has(s.videoId)) continue
+    seen.add(s.videoId)
+    unique.push(s)
+  }
+  const slice = unique.slice(start, start + count)
   return {
     items: slice,
-    hasMore: start + count < SHORTS.length,
+    hasMore: start + count < unique.length,
     next: start + count,
   }
 }
