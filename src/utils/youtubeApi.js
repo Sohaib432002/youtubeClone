@@ -147,6 +147,21 @@ export async function searchVideos(
   if (yt) return yt
 
   if (!pageToken) {
+    // Prefer backend category filter when query looks like a category chip
+    const djangoCat = await fetchDjango(
+      `/videos/?category=${encodeURIComponent(q.split(' ')[0])}`
+    )
+    if (djangoCat && Array.isArray(djangoCat.results || djangoCat)) {
+      const list = djangoCat.results || djangoCat
+      if (list.length) {
+        return {
+          kind: 'youtube#searchListResponse',
+          items: list.map(mapDjangoVideoToSearchItem),
+          nextPageToken: undefined,
+        }
+      }
+    }
+
     const django = await fetchDjango(`/search/?q=${encodeURIComponent(q)}`)
     if (django && Array.isArray(django.results || django)) {
       const list = django.results || django

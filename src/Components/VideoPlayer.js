@@ -14,6 +14,8 @@ import {
   isShortSearchItem,
   toSearchItem,
 } from '../data/mockCatalog'
+import { inferCategoryFromText, scoreCategoryMatch } from '../utils/categoryMatch'
+import { scoreAgainstTopic } from '../utils/feed'
 import Comments from './PlayerComponent/Comments'
 import Player from './PlayerComponent/Player'
 import RelatedVideos from './PlayerComponent/RelatedVideosList'
@@ -54,9 +56,10 @@ function normalizeRelatedItem(it) {
 }
 
 function buildRelatedQuery(title, category) {
-  const keys = extractKeywords(title).slice(0, 5)
+  const keys = extractKeywords(title).slice(0, 4)
+  if (category && keys.length) return `${category} ${keys.join(' ')}`
   if (keys.length) return keys.join(' ')
-  if (category) return category
+  if (category) return `${category} videos`
   return 'tutorial'
 }
 
@@ -139,8 +142,11 @@ const VideoPlayer = () => {
       const catalog = getCatalogVideo(id)
       const snippet = details?.items?.[0]?.snippet
       const title = snippet?.title || catalog?.title || ''
-      const category = catalog?.category || ''
       const description = snippet?.description || catalog?.description || ''
+      const category =
+        catalog?.category ||
+        inferCategoryFromText(`${title} ${description}`, '') ||
+        ''
 
       if (id) {
         addToHistory({
@@ -187,7 +193,7 @@ const VideoPlayer = () => {
         channelId: snippet?.channelId || catalog?.channelId,
       })
 
-      // Seed with scored catalog matches immediately
+      // Seed with scored catalog matches immediately (on-topic only)
       if (!cancelled) {
         setRelatedData({ items: relatedLocal })
         setRelatedLoading(false)
@@ -197,25 +203,25 @@ const VideoPlayer = () => {
       try {
         const related = await searchVideos(query, 24, { videoDuration: 'medium' })
         if (cancelled) return
+        const topic = `${title} ${category}`
         const live = (related?.items || [])
           .map(normalizeRelatedItem)
           .filter(Boolean)
-          // Keep only items that share keywords with the current video
           .filter((it) => {
-            const keys = extractKeywords(title || category)
-            if (!keys.length) return true
-            const hay = `${it.snippet?.title || ''} ${it.snippet?.description || ''}`.toLowerCase()
-            return keys.some((k) => hay.includes(k))
+            const hay = `${it.snippet?.title || ''} ${it.snippet?.description || ''}`
+            if (category && scoreCategoryMatch(hay, category) >= 24) return true
+            return scoreAgainstTopic(it, topic) >= 18
           })
 
-        if (live.length) {
-          const ids = new Set(live.map((x) => x.id.videoId))
+        // Catalog first — never let weak live results bury relevant items
+        if (live.length || relatedLocal.length) {
+          const ids = new Set(relatedLocal.map((x) => x.id?.videoId))
           const merged = [
-            ...live,
-            ...relatedLocal.filter((r) => !ids.has(r.id?.videoId)),
+            ...relatedLocal,
+            ...live.filter((r) => !ids.has(r.id?.videoId)),
           ].slice(0, 28)
           setRelatedData({ items: merged })
-        } else if (!relatedLocal.length) {
+        } else {
           setRelatedError('No related videos found for this topic.')
         }
       } catch (_) {

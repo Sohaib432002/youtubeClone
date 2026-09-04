@@ -238,7 +238,7 @@ const SHORT_CAPTIONS = [
   'Guitar riff you need to learn',
   'Cooking rice the right way',
   'Football skill move tutorial',
-  ' ast that actually works',
+  'Breakfast that actually works',
   'Hidden feature in Chrome',
   'Study with me — focus timer',
   'Makeup hack for busy mornings',
@@ -248,74 +248,80 @@ const SHORT_CAPTIONS = [
   'Startup pitch in 20 seconds',
 ]
 
-const TITLES = [
-  'Vanishing Gradient Problem in ANN | Deep Learning',
-  'Full React Course for Beginners — Build 5 Projects',
-  'I Survived 50 Hours in Antarctica',
-  'The Science of Black Holes Explained',
-  'Python for Data Science — Complete Tutorial',
-  'Top 10 Goals of the Season | NBA Highlights',
-  'How AI Will Change Everything in 2026',
-  'Building a Startup From Zero to $1M',
-  'Travel Vlog: 7 Days in Northern Pakistan',
-  'Homemade Biryani — Restaurant Style Recipe',
-  'Perfect Push-Up Form (Avoid These Mistakes)',
-  'History of the Indus Valley Civilization',
-  'JavaScript Async/Await Deep Dive',
-  'Machine Learning Crash Course',
-  'Live Coding: Build a YouTube Clone',
-  'Documentary: Life Inside a Volcano',
-  'Podcast: Future of Remote Work',
-  'Mathematics: Linear Algebra Explained Simply',
-  'Fashion Trends You Need to Know',
-  'Finance 101: Investing for Beginners',
-  'Comedy Special — Stand Up Night',
-  'Gaming: Epic Ranked Comeback',
-  'News Today — Global Markets Update',
-  'Tutorial: Docker & Kubernetes Basics',
-  'Fitness Challenge — 30 Day Transformation',
-  'Food Tour Across Street Markets',
-  'Science Experiments You Can Try at Home',
-  'Programming Tips That Save Hours',
-  'AI Agents Explained in 15 Minutes',
-  'Data Science Portfolio Projects',
-  'Business Strategy Case Study',
-  'Entertainment Roundup — This Week',
-  'Trending Songs Mix 2026',
-  'Recently Uploaded Tech Reviews',
-  'Education: How Memory Works',
-  'Sports Analysis — Match Breakdown',
-]
+/**
+ * Real YouTube videoId + real title pairs (thumbnail always matches title).
+ * Each entry lists categories it can appear under.
+ */
+const MATCHED_VIDEOS = [
+  { videoId: 'dQw4w9WgXcQ', title: 'Rick Astley - Never Gonna Give You Up (Official Music Video)', channelTitle: 'Rick Astley', categories: ['Music', 'Trending', 'Entertainment'] },
+  { videoId: 'kJQP7kiw5Fk', title: 'Luis Fonsi - Despacito ft. Daddy Yankee', channelTitle: 'Luis Fonsi', categories: ['Music', 'Trending'] },
+  { videoId: 'OPf0YbXqDm0', title: 'Mark Ronson - Uptown Funk (Official Video) ft. Bruno Mars', channelTitle: 'Mark Ronson', categories: ['Music', 'Entertainment'] },
+  { videoId: 'fJ9rUzIMcZQ', title: 'Queen – Bohemian Rhapsody (Official Video Remastered)', channelTitle: 'Queen Official', categories: ['Music', 'Trending'] },
+  { videoId: '9bZkp7q19f0', title: 'PSY - GANGNAM STYLE (강남스타일) M/V', channelTitle: 'officialpsy', categories: ['Music', 'Trending', 'Entertainment'] },
+  { videoId: 'CevxZvSJLk8', title: 'Katy Perry - Roar (Official)', channelTitle: 'Katy Perry', categories: ['Music'] },
+  { videoId: 'RgKAFK5djSk', title: 'Wiz Khalifa - See You Again ft. Charlie Puth [Official Video]', channelTitle: 'Wiz Khalifa', categories: ['Music', 'Entertainment'] },
+  { videoId: 'e-ORhEE9VVg', title: 'Taylor Swift - Blank Space', channelTitle: 'Taylor Swift', categories: ['Music'] },
+  { videoId: 'YQHsXMglC9A', title: 'Adele - Hello (Official Music Video)', channelTitle: 'Adele', categories: ['Music', 'Trending'] },
+  { videoId: 'JGwWNGJdvx8', title: 'Ed Sheeran - Shape of You (Official Video)', channelTitle: 'Ed Sheeran', categories: ['Music'] },
+  { videoId: '2Vv-BfVoq4g', title: 'Ed Sheeran - Perfect (Official Music Video)', channelTitle: 'Ed Sheeran', categories: ['Music'] },
+  { videoId: '60ItHLz5WEA', title: 'Alan Walker - Faded', channelTitle: 'Alan Walker', categories: ['Music', 'Entertainment'] },
+  { videoId: 'pRpeEdMmmQ0', title: 'Shakira - Waka Waka (This Time for Africa)', channelTitle: 'Shakira', categories: ['Music', 'Sports'] },
+  { videoId: 'lp-EO5I60KA', title: 'Adele - Someone Like You (Official Music Video)', channelTitle: 'Adele', categories: ['Music'] },
+  { videoId: 'hTWKbfoikeg', title: 'a-ha - Take On Me (Official Video)', channelTitle: 'a-ha', categories: ['Music'] },
+  { videoId: '09R8_2nJtjg', title: 'John Legend - All of Me (Official Video)', channelTitle: 'John Legend', categories: ['Music'] },
+  { videoId: 'SlPhMPnQ58k', title: 'Avicii - Wake Me Up (Official Video)', channelTitle: 'Avicii', categories: ['Music', 'Entertainment'] },
+  { videoId: 'kXYiU_JCYtU', title: 'Linkin Park - Numb (Official Music Video)', channelTitle: 'Linkin Park', categories: ['Music'] },
+  { videoId: 'ktvTqknDobU', title: 'Imagine Dragons - Radioactive', channelTitle: 'Imagine Dragons', categories: ['Music'] },
+  { videoId: 'fNk_zzaMoSs', title: 'Imagine Dragons - Believer', channelTitle: 'Imagine Dragons', categories: ['Music', 'Trending'] },
 
-const CATEGORY_TITLE_PREFIX = {
-  Trending: 'Trending Now',
-  Music: 'Music Mix',
-  Gaming: 'Gaming',
-  Live: 'Live',
-  News: 'News Update',
-  Sports: 'Sports Highlights',
-  Movies: 'Movie Recap',
-  Comedy: 'Comedy',
-  Education: 'Learn',
-  Technology: 'Tech',
-  Programming: 'Code',
-  Science: 'Science',
-  Mathematics: 'Math',
-  AI: 'AI Explained',
-  'Data Science': 'Data Science',
-  Business: 'Business',
-  Finance: 'Finance Tips',
-  Podcasts: 'Podcast',
-  Entertainment: 'Entertainment',
-  Travel: 'Travel',
-  Food: 'Food',
-  Fitness: 'Fitness',
-  Fashion: 'Fashion',
-  Tutorials: 'Tutorial',
-  Documentary: 'Documentary',
-  History: 'History',
-  'Recently Uploaded': 'Just Uploaded',
-}
+  { videoId: 'M7lc1UVf-VE', title: 'YouTube Developers Live: Embedded Web Player Customization', channelTitle: 'Google Developers', categories: ['Technology', 'Programming', 'Tutorials'] },
+  { videoId: 'rfscVS0vtbw', title: 'Learn Python - Full Course for Beginners [Tutorial]', channelTitle: 'freeCodeCamp.org', categories: ['Programming', 'Education', 'Tutorials', 'Trending'] },
+  { videoId: 'PkZNo7MFNFg', title: 'Learn JavaScript - Full Course for Beginners', channelTitle: 'freeCodeCamp.org', categories: ['Programming', 'Education', 'Tutorials'] },
+  { videoId: 'W6NZfCO5SIk', title: 'JavaScript Tutorial for Beginners: Learn JavaScript in 1 Hour', channelTitle: 'Programming with Mosh', categories: ['Programming', 'Tutorials', 'Education'] },
+  { videoId: 'Ke90Tje7VS0', title: 'React JS - React Tutorial for Beginners', channelTitle: 'Programming with Mosh', categories: ['Programming', 'Technology', 'Tutorials'] },
+  { videoId: 'aircAruvnKk', title: 'But what is a neural network? | Deep learning', channelTitle: '3Blue1Brown', categories: ['AI', 'Science', 'Education', 'Mathematics'] },
+  { videoId: 'IHZwWFHWa-w', title: 'Gradient descent, how neural networks learn | Deep learning', channelTitle: '3Blue1Brown', categories: ['AI', 'Mathematics', 'Education'] },
+  { videoId: 'Ilg3gGewQ5U', title: 'What is backpropagation really doing? | Deep learning', channelTitle: '3Blue1Brown', categories: ['AI', 'Science', 'Education'] },
+  { videoId: 'RBSGKlAvoiM', title: 'Data Structures Easy to Advanced Course', channelTitle: 'freeCodeCamp.org', categories: ['Programming', 'Education', 'Data Science'] },
+  { videoId: '8hly31xKli0', title: 'Algorithms and Data Structures Tutorial - Full Course', channelTitle: 'freeCodeCamp.org', categories: ['Programming', 'Education'] },
+  { videoId: 'ua-CiDNNj30', title: 'Learn Data Science Tutorial - Full Course for Beginners', channelTitle: 'freeCodeCamp.org', categories: ['Data Science', 'Education', 'Programming'] },
+  { videoId: 'GPVsHOlRBBI', title: 'Machine Learning Course for Beginners', channelTitle: 'freeCodeCamp.org', categories: ['AI', 'Data Science', 'Education'] },
+  { videoId: 'n_dfcAwx5VA', title: 'Git and GitHub for Beginners - Crash Course', channelTitle: 'freeCodeCamp.org', categories: ['Programming', 'Tutorials', 'Technology'] },
+  { videoId: '3EMtTkZvJVA', title: 'SQL Tutorial - Full Database Course for Beginners', channelTitle: 'freeCodeCamp.org', categories: ['Programming', 'Data Science', 'Tutorials'] },
+  { videoId: 'Z1RJmh_OqeA', title: 'Flask Tutorial - Python Web Development', channelTitle: 'freeCodeCamp.org', categories: ['Programming', 'Tutorials'] },
+
+  { videoId: 'aqz-KE-bpKQ', title: 'Big Buck Bunny 60fps 4K - Blender Open Movie', channelTitle: 'Blender', categories: ['Movies', 'Entertainment', 'Trending'] },
+  { videoId: 'eRsGyueVLvQ', title: 'Sintel - Third Open Movie by Blender Foundation', channelTitle: 'Blender', categories: ['Movies', 'Entertainment'] },
+  { videoId: 'LXb3EKWsInQ', title: 'COSTA RICA IN 4K 60fps HDR (ULTRA HD)', channelTitle: 'Jacob + Katie Schwarz', categories: ['Travel', 'Documentary', 'Trending'] },
+  { videoId: 'sGPrA0aG0y0', title: 'Earth - Our Home in 4K', channelTitle: 'Amazing Nature', categories: ['Documentary', 'Science', 'Travel'] },
+  { videoId: 'ScMzIvxBSi4', title: 'MARSHALL - Official Trailer', channelTitle: 'Open Road Films', categories: ['Movies', 'Entertainment'] },
+  { videoId: 'tgbNymZ7vqY', title: 'Video placeholder for demo players', channelTitle: 'YouTube', categories: ['Technology', 'Tutorials'] },
+  { videoId: 'ysz5S6PUM-U', title: 'YouTube Video Player Demo', channelTitle: 'YouTube', categories: ['Technology'] },
+  { videoId: 'BaW_jenozKc', title: 'Me at the zoo', channelTitle: 'jawed', categories: ['Trending', 'Recently Uploaded', 'Entertainment'] },
+  { videoId: 'jNQXAC9IVRw', title: 'Me at the zoo (First YouTube Video)', channelTitle: 'jawed', categories: ['History', 'Trending', 'Recently Uploaded'] },
+
+  { videoId: 'hT_nvWreIhg', title: 'OneRepublic - Counting Stars', channelTitle: 'OneRepublic', categories: ['Music', 'Entertainment'] },
+  { videoId: 'iSHyrINi6zM', title: 'The Chainsmokers - Closer ft. Halsey', channelTitle: 'The Chainsmokers', categories: ['Music'] },
+  { videoId: 'PT2_F-1esPk', title: 'The Weeknd - Starboy ft. Daft Punk', channelTitle: 'The Weeknd', categories: ['Music'] },
+  { videoId: 'UceaB4D0jpo', title: 'Post Malone - Congratulations ft. Quavo', channelTitle: 'Post Malone', categories: ['Music'] },
+  { videoId: '3tmd-ClpJxA', title: 'Sia - Chandelier (Official Video)', channelTitle: 'Sia', categories: ['Music', 'Entertainment'] },
+  { videoId: 'RBumgq5yVrA', title: 'Passenger | Let Her Go (Official Video)', channelTitle: 'Passenger', categories: ['Music'] },
+  { videoId: 'V-_O7nl0Ii0', title: 'Gotye - Somebody That I Used To Know (feat. Kimbra)', channelTitle: 'Gotye', categories: ['Music'] },
+  { videoId: 'Zi_XLOBDo_Y', title: 'The Weeknd - The Hills', channelTitle: 'The Weeknd', categories: ['Music'] },
+  { videoId: 'lTTajzrSkCw', title: 'Maroon 5 - Sugar (Official Music Video)', channelTitle: 'Maroon 5', categories: ['Music', 'Entertainment'] },
+  { videoId: 'E7wq4O6DVes', title: 'Coldplay - Hymn For The Weekend (Official Video)', channelTitle: 'Coldplay', categories: ['Music'] },
+
+  { videoId: 'IlNAJl36-1w', title: 'National Geographic Short Film Showcase', channelTitle: 'National Geographic', categories: ['Documentary', 'Science', 'Travel'] },
+  { videoId: 'DWcJFNfaw9c', title: 'Planet Earth Moments', channelTitle: 'BBC Earth', categories: ['Documentary', 'Science', 'Nature'] },
+  { videoId: 'L_LUpnjgPso', title: 'TED Talks Inspiration', channelTitle: 'TED', categories: ['Education', 'Business', 'Podcasts'] },
+  { videoId: 'ZbZSe6N_BXs', title: 'Pharrell Williams - Happy (Official Music Video)', channelTitle: 'Pharrell Williams', categories: ['Music', 'Entertainment', 'Comedy'] },
+  { videoId: 'cdwal5Kw3Fc', title: 'Bruno Mars - The Lazy Song (Official Video)', channelTitle: 'Bruno Mars', categories: ['Music', 'Comedy'] },
+  { videoId: 'iik25wqIuFo', title: 'Sia - Elastic Heart feat. Shia LaBeouf & Maddie Ziegler', channelTitle: 'Sia', categories: ['Music', 'Entertainment'] },
+  { videoId: 'WsptdUFthWI', title: 'Calvin Harris - Summer (Official Video)', channelTitle: 'Calvin Harris', categories: ['Music'] },
+  { videoId: 'fLexgOxsZu0', title: 'Ellie Goulding - Love Me Like You Do', channelTitle: 'Ellie Goulding', categories: ['Music', 'Movies'] },
+  { videoId: 'astISOttCQ0', title: 'Clean Bandit - Rather Be ft. Jess Glynne', channelTitle: 'Clean Bandit', categories: ['Music'] },
+  { videoId: 'QH2-TGUlwu4', title: 'Nyan Cat [original]', channelTitle: 'Nyan Cat', categories: ['Comedy', 'Entertainment', 'Trending'] },
+]
 
 function daysAgo(n) {
   const d = new Date()
@@ -331,34 +337,62 @@ function formatDuration(totalSec) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-/** Build enough unique videos per category so chips actually change the feed */
+function pickMatchedForCategory(category, count, startOffset = 0) {
+  const exact = MATCHED_VIDEOS.filter((v) => v.categories.includes(category))
+  const pool = exact.length >= 4 ? exact : MATCHED_VIDEOS
+  const out = []
+  for (let i = 0; i < count; i += 1) {
+    out.push(pool[(startOffset + i) % pool.length])
+  }
+  return out
+}
+
+/** Build videos where every title matches its real YouTube thumbnail */
 function buildVideos() {
   const cats = CATEGORY_LIST.filter((c) => c !== 'All')
   const perCat = 10
   const list = []
   let n = 0
+
   cats.forEach((category) => {
+    const picks = pickMatchedForCategory(category, perCat, n)
+    const seenIds = new Set()
     for (let j = 0; j < perCat; j += 1) {
-      const channel = CHANNELS[n % CHANNELS.length]
-      const videoId = YT_IDS[n % YT_IDS.length]
+      let matched = picks[j]
+      // Prefer unique ids inside a category
+      if (seenIds.has(matched.videoId)) {
+        matched =
+          MATCHED_VIDEOS.find((v) => !seenIds.has(v.videoId)) || matched
+      }
+      seenIds.add(matched.videoId)
+
+      const channelFallback = CHANNELS[n % CHANNELS.length]
       const views = Math.floor(12000 + ((n * 7919) % 9000000))
-      const durationSec = 90 + ((n * 137) % 4200)
+      const durationSec = 150 + ((n * 137) % 4200)
       const publishedAt = daysAgo(
         category === 'Recently Uploaded' ? n % 14 : (n * 3) % 900
       )
-      const thumb = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
-      const prefix = CATEGORY_TITLE_PREFIX[category] || category
-      const baseTitle = TITLES[n % TITLES.length]
+      const thumbMq = `https://i.ytimg.com/vi/${matched.videoId}/mqdefault.jpg`
+      const thumbHq = `https://i.ytimg.com/vi/${matched.videoId}/hqdefault.jpg`
+      const tags = [
+        category.toLowerCase(),
+        ...matched.title
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter((w) => w.length > 3)
+          .slice(0, 6),
+      ]
       list.push({
-        id: `vid_${category.replace(/\s/g, '_')}_${j}_${videoId}`,
-        videoId,
-        title: `${prefix}: ${baseTitle}${j > 0 ? ` · Part ${j + 1}` : ''}`,
-        description: `${baseTitle}\n\nCategory: ${category}\nSubscribe to ${channel.title} for more.\n\n#${category.replace(/\s/g, '')} #YouTubeClone`,
-        channelId: channel.id,
-        channelTitle: channel.title,
-        channelAvatar: channel.avatar,
-        verified: channel.verified,
+        id: `vid_${category.replace(/\s/g, '_')}_${j}_${matched.videoId}`,
+        videoId: matched.videoId,
+        title: matched.title,
+        description: `${matched.title}\n\nCategory: ${category}\nTags: ${tags.join(', ')}\n\n#${category.replace(/\s/g, '')} #YouTubeClone`,
+        channelId: channelFallback.id,
+        channelTitle: matched.channelTitle || channelFallback.title,
+        channelAvatar: channelFallback.avatar,
+        verified: true,
         category,
+        tags,
         views: category === 'Trending' ? views + 800000 : views,
         likes: Math.floor(views * 0.04),
         comments: Math.floor(views * 0.002),
@@ -369,9 +403,9 @@ function buildVideos() {
         downloadable: n % 3 === 0,
         downloadUrl: n % 3 === 0 ? SAMPLE_MP4 : null,
         thumbnails: {
-          default: { url: thumb },
-          medium: { url: thumb },
-          high: { url: thumb },
+          default: { url: thumbMq },
+          medium: { url: thumbMq },
+          high: { url: thumbHq },
         },
       })
       n += 1
@@ -475,15 +509,27 @@ export function getVideosByCategory(category = 'All', page = 0, pageSize = 24) {
         )
         .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
     } else {
-      // Exact category first — avoids every chip showing the same mixed feed
-      const exact = VIDEOS.filter((v) => v.category.toLowerCase() === key)
-      filtered = exact.length
-        ? exact
-        : VIDEOS.filter(
-            (v) =>
-              v.title.toLowerCase().includes(key) ||
-              v.description.toLowerCase().includes(`category: ${key}`)
-          )
+      // Exact category only — never mix unrelated chips
+      filtered = VIDEOS.filter((v) => v.category.toLowerCase() === key)
+    }
+  } else {
+    // All: interleave categories so feed isn't one category block after another
+    const byCat = new Map()
+    VIDEOS.forEach((v) => {
+      const arr = byCat.get(v.category) || []
+      arr.push(v)
+      byCat.set(v.category, arr)
+    })
+    const queues = [...byCat.values()].map((q) => [...q])
+    filtered = []
+    let remaining = queues.reduce((n, q) => n + q.length, 0)
+    while (remaining > 0) {
+      for (let i = 0; i < queues.length; i += 1) {
+        if (queues[i].length) {
+          filtered.push(queues[i].shift())
+          remaining -= 1
+        }
+      }
     }
   }
   const start = page * pageSize
@@ -541,20 +587,21 @@ export function extractKeywords(text = '') {
 
 function scoreRelated(candidate, current, keywords) {
   let score = 0
-  const title = `${candidate.title} ${candidate.description}`.toLowerCase()
-  if (current?.category && candidate.category === current.category) score += 50
-  if (current?.channelId && candidate.channelId === current.channelId) score += 25
+  const title = `${candidate.title} ${candidate.description} ${(candidate.tags || []).join(' ')}`.toLowerCase()
+  if (current?.category && candidate.category === current.category) score += 60
+  if (current?.channelId && candidate.channelId === current.channelId) score += 20
   keywords.forEach((kw) => {
-    if (candidate.title.toLowerCase().includes(kw)) score += 12
+    if (candidate.title.toLowerCase().includes(kw)) score += 14
+    else if ((candidate.tags || []).some((t) => String(t).toLowerCase() === kw)) score += 10
     else if (title.includes(kw)) score += 4
   })
-  // Prefer longer-form catalog videos
-  if (!candidate.isShort && (candidate.durationSec || 0) >= 90) score += 8
+  if (!candidate.isShort && (candidate.durationSec || 0) >= 90) score += 6
   return score
 }
 
 /**
  * Related videos: long-form only (no Shorts), ranked by category / channel / keywords.
+ * Never pads with unrelated videos — returns fewer items if needed.
  */
 export function getRelated(videoId, limit = 20, hint = {}) {
   const current = getCatalogVideo(videoId)
@@ -562,7 +609,7 @@ export function getRelated(videoId, limit = 20, hint = {}) {
   const categoryHint = hint.category || current?.category || ''
   const channelHint = hint.channelId || current?.channelId || ''
   const keywords = extractKeywords(
-    `${titleHint} ${categoryHint} ${hint.description || current?.description || ''}`
+    `${titleHint} ${categoryHint} ${hint.description || current?.description || ''} ${(current?.tags || []).join(' ')}`
   )
 
   const currentMeta = current || {
@@ -571,17 +618,17 @@ export function getRelated(videoId, limit = 20, hint = {}) {
     title: titleHint,
   }
 
-  // Never include Shorts in related
   const pool = VIDEOS.filter(
     (v) => v.videoId !== videoId && !v.isShort && (v.durationSec || 120) >= 60
   )
 
+  const MIN_SCORE = categoryHint ? 40 : 20
+
   const ranked = pool
     .map((v) => ({ v, score: scoreRelated(v, currentMeta, keywords) }))
-    .filter(({ score }) => score > 0)
+    .filter(({ score }) => score >= MIN_SCORE)
     .sort((a, b) => b.score - a.score)
 
-  // If too few strong matches, fill with same-category then same-channel only (still no random dump)
   const picked = []
   const seen = new Set()
   const push = (v) => {
@@ -595,6 +642,7 @@ export function getRelated(videoId, limit = 20, hint = {}) {
     if (picked.length < limit) push(v)
   })
 
+  // Same-category fill only (still on-topic) — never random dump
   if (picked.length < Math.min(8, limit) && categoryHint) {
     pool
       .filter((v) => v.category === categoryHint)
@@ -603,17 +651,8 @@ export function getRelated(videoId, limit = 20, hint = {}) {
       })
   }
 
-  if (picked.length < Math.min(6, limit) && channelHint) {
-    pool
-      .filter((v) => v.channelId === channelHint)
-      .forEach((v) => {
-        if (picked.length < limit) push(v)
-      })
-  }
-
   return picked.slice(0, limit).map((v) => {
     const item = toSearchItem(v)
-    // Force landscape YouTube thumbnails (mq/hq are 16:9)
     const landscape = `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`
     item.snippet.thumbnails = {
       default: { url: landscape },

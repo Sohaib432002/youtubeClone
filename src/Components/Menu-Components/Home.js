@@ -13,7 +13,6 @@ import {
 } from '../../utils/feed'
 import Card from '../Home-components/Card'
 import ShowMoreButton from '../ui/ShowMoreButton'
-import fetchedData from '../../FetchedData'
 
 /** Long videos shown above Shorts (~2 desktop rows). */
 const PRE_SHORTS_COUNT = 6
@@ -82,30 +81,16 @@ const Home = () => {
       const topic = activeCategory === 'All' ? 'recommended' : activeCategory
       const local = getVideosByCategory(activeCategory, 0, 24)
 
+      // Catalog is source of truth for category chips (title always matches thumbnail)
       let list = filterRestricted(
         local.items.map((it) => normalizeFeedItem(it, activeCategory)).filter(Boolean)
       )
-
-      if (activeCategory === 'All') {
-        const original = (fetchedData?.items || [])
-          .map((it) => normalizeFeedItem(it, 'All'))
-          .filter(Boolean)
-        if (original.length) {
-          const ids = new Set(original.map((m) => m.id.videoId))
-          list = filterRestricted(
-            dedupeByVideoId([
-              ...original,
-              ...list.filter((x) => !ids.has(x.id?.videoId)),
-            ])
-          )
-        }
-      }
 
       list = dedupeByVideoId(list)
 
       if (!cancelled) {
         setItems(list)
-        setHasMore(local.hasMore || list.length >= 12)
+        setHasMore(local.hasMore || list.length >= 8)
         const localLogos = {}
         list.forEach((v) => {
           if (v.meta?.channelAvatar) localLogos[v.snippet.channelId] = v.meta.channelAvatar
@@ -118,8 +103,10 @@ const Home = () => {
         activeCategory === 'All'
           ? 'popular educational videos'
           : activeCategory === 'Trending'
-            ? 'trending videos'
-            : `${categoryQuery || activeCategory} video`
+            ? 'trending videos today'
+            : activeCategory === 'Recently Uploaded'
+              ? 'new videos this week'
+              : `${activeCategory} ${categoryQuery || ''}`.trim()
 
       try {
         const live = await searchVideos(liveQuery, 24, {
@@ -134,15 +121,14 @@ const Home = () => {
 
         if (mapped.length) {
           if (activeCategory === 'All' || activeCategory === 'Trending') {
-            const ids = new Set(mapped.map((m) => m.id.videoId))
-            list = filterRestricted(
-              dedupeByVideoId([
-                ...sortByTopicRelevance(mapped, topic),
-                ...list.filter((x) => !ids.has(x.id?.videoId)),
-              ])
+            const ids = new Set(list.map((m) => m.id.videoId))
+            const liveExtra = sortByTopicRelevance(
+              mapped.filter((m) => !ids.has(m.id.videoId)),
+              topic
             )
+            list = filterRestricted(dedupeByVideoId([...list, ...liveExtra]))
           } else {
-            // Category chips: catalog first (guaranteed on-topic), then matching live only
+            // Category chips: catalog first, then only strongly matching live
             const catalog = filterRestricted(
               local.items
                 .map((it) => normalizeFeedItem(it, activeCategory))
@@ -152,13 +138,13 @@ const Home = () => {
             const liveExtra = sortByTopicRelevance(
               mapped.filter((m) => !ids.has(m.id.videoId)),
               topic
-            )
+            ).filter((m) => matchesHomeCategory(m, activeCategory))
             list = filterRestricted(dedupeByVideoId([...catalog, ...liveExtra]))
           }
 
           if (!cancelled) {
             setItems(list)
-            setHasMore(local.hasMore || list.length >= 12)
+            setHasMore(local.hasMore || list.length >= 8)
           }
         }
       } catch (_) {
@@ -236,7 +222,10 @@ const Home = () => {
 
   const renderVideoCard = (item, idx) => {
     const vid = item.id?.videoId || item.meta?.videoId
-    const thumb = landscapeThumbnail(vid)
+    const thumb =
+      item.snippet?.thumbnails?.high?.url ||
+      item.snippet?.thumbnails?.medium?.url ||
+      landscapeThumbnail(vid)
     return (
       <Card
         key={`${vid}-${idx}`}

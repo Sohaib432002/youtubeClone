@@ -1,8 +1,9 @@
 import { extractKeywords } from '../data/mockCatalog'
+import { inferCategoryFromText, scoreCategoryMatch } from './categoryMatch'
 
 /** Always use YouTube 16:9 mq/hq thumbnails (not vertical Shorts crops). */
 export function landscapeThumbnail(videoId, fallback = '') {
-  if (videoId) return `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`
+  if (videoId) return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
   return fallback || ''
 }
 
@@ -20,9 +21,15 @@ export function isShortLikeItem(item) {
   return false
 }
 
+function itemText(item) {
+  return `${item.snippet?.title || ''} ${item.snippet?.description || ''} ${
+    item.snippet?.channelTitle || ''
+  } ${(item.meta?.tags || []).join(' ')}`
+}
+
 /**
  * Does this video meaningfully match a home category chip?
- * Avoids stuffing Music/Gaming/etc. with unrelated live API noise.
+ * Requires meta category OR strong keyword/synonym overlap.
  */
 export function matchesHomeCategory(item, category) {
   if (!category || category === 'All') return true
@@ -32,29 +39,27 @@ export function matchesHomeCategory(item, category) {
   const key = category.toLowerCase()
   if (metaCat && metaCat === key) return true
 
-  const text = `${item.snippet?.title || ''} ${item.snippet?.description || ''} ${
-    item.snippet?.channelTitle || ''
-  }`.toLowerCase()
-
-  if (text.includes(key)) return true
-
-  const tokens = extractKeywords(category)
-  const hits = tokens.filter((t) => text.includes(t)).length
-  return hits >= 1
+  // Do not treat stamped/fallback category as proof — score the text
+  return scoreCategoryMatch(itemText(item), category) >= 24
 }
 
 /** Rank items by keyword overlap with a topic string (title or category). */
 export function scoreAgainstTopic(item, topic = '') {
   const keywords = extractKeywords(topic)
-  if (!keywords.length) return 0
-  const text = `${item.snippet?.title || ''} ${item.snippet?.description || ''}`.toLowerCase()
-  let score = 0
+  const text = itemText(item).toLowerCase()
+  let score = scoreCategoryMatch(text, topic)
+
   keywords.forEach((kw) => {
     if ((item.snippet?.title || '').toLowerCase().includes(kw)) score += 10
     else if (text.includes(kw)) score += 3
   })
-  if (item.meta?.category && topic.toLowerCase().includes(String(item.meta.category).toLowerCase())) {
-    score += 15
+
+  if (
+    item.meta?.category &&
+    topic &&
+    String(item.meta.category).toLowerCase() === String(topic).toLowerCase()
+  ) {
+    score += 25
   }
   return score
 }
@@ -65,12 +70,36 @@ export function sortByTopicRelevance(items, topic) {
   )
 }
 
+/**
+ * Normalize feed item. Only stamp category when it truly matches,
+ * otherwise infer or leave empty — prevents fake category pollution.
+ */
 export function normalizeFeedItem(it, category = 'All') {
   const videoId =
     (typeof it?.id === 'string' && it.id) || it?.id?.videoId || it?.meta?.videoId
   if (!videoId || !it?.snippet) return null
   if (isShortLikeItem(it)) return null
   const thumb = landscapeThumbnail(videoId)
+
+  const existingCat = it.meta?.category || ''
+  let resolvedCategory = existingCat
+  if (!resolvedCategory || resolvedCategory === 'All') {
+    const inferred = inferCategoryFromText(
+      `${it.snippet.title} ${it.snippet.description || ''}`,
+      category !== 'All' ? category : ''
+    )
+    // Only accept selected chip category if text actually matches
+    if (category && category !== 'All' && category !== 'Trending') {
+      const ok =
+        scoreCategoryMatch(`${it.snippet.title} ${it.snippet.description || ''}`, category) >=
+          24 ||
+        (existingCat && existingCat.toLowerCase() === category.toLowerCase())
+      resolvedCategory = ok ? category : inferred || existingCat || ''
+    } else {
+      resolvedCategory = inferred || existingCat || ''
+    }
+  }
+
   return {
     ...it,
     id: { kind: 'youtube#video', videoId },
@@ -86,7 +115,7 @@ export function normalizeFeedItem(it, category = 'All') {
       ...(it.meta || {}),
       videoId,
       isShort: false,
-      category: it.meta?.category || category,
+      category: resolvedCategory,
       duration: it.meta?.duration || it.contentDetails?.duration || '',
       views: it.meta?.views ?? it.statistics?.viewCount,
     },
