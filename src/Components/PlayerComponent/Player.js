@@ -1,7 +1,5 @@
 import React from 'react'
-import Button from '../Navbar-Components/Button'
 import VideoReviewOptions from './subComponents/VideoReviewOptions'
-import VideoDescription from './subComponents/VideoDescription'
 import PlayerSkeleton from './PlayerSkeleton'
 import { useParams } from 'react-router-dom'
 

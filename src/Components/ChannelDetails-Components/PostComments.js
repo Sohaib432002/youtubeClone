@@ -7,9 +7,9 @@ const listbtnNames = ['Report']
 
 const PostComments = () => {
   const [options, setOptions] = useState(false)
-  const [commentData, setcommentData] = useState([])
+  const [commentData] = useState([])
   console.log(commentData)
-  const [fetchData, setfetchData] = useState([])
+  const [fetchData] = useState([])
   return (
     <>
       <div className="flex flex-col items-center justify-center my-7">

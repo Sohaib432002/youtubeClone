@@ -6,7 +6,7 @@ const VideoDescription = ({ fetchData }) => {
 
   if (!fetchData || !fetchData.items || fetchData.items.length === 0) {
     return (
-      <div className="title text-[#DDDDDD] max-w-[1227px] h-[20vh] my-3 bg-[#272727] overflow-hidden p-2 rounded-xl ml-20"></div>
+      <div className="title text-[#DDDDDD] max-w-[1227px] h-[20vh] my-3 bg-[#272727] overflow-hidden p-2 rounded-xl mx-2 sm:mx-4 md:ml-8 lg:ml-12"></div>
     )
   }
 
@@ -47,7 +47,7 @@ const VideoDescription = ({ fetchData }) => {
   const description = snippet?.description || ''
 
   return (
-    <div className="title text-[#DDDDDD] max-w-[1227px] my-3 bg-[#272727] overflow-hidden p-3 rounded-xl ml-20">
+    <div className="title text-[#DDDDDD] max-w-[1227px] my-3 bg-[#272727] overflow-hidden p-3 rounded-xl mx-2 sm:mx-4 md:ml-8 lg:ml-12">
       <div className="flex flex-wrap items-center gap-2">
         <b>
           {views} Views • {publishedAt}

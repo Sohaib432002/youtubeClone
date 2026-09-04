@@ -23,7 +23,7 @@ const Comments = ({ fetchData, commentData }) => {
   }
 
   return (
-    <div className="max-w-[1227px] player text-[20px] text-white rounded-[10px] ml-20">
+    <div className="max-w-[1227px] player text-[20px] text-white rounded-[10px] mx-2 sm:mx-4 md:ml-8 lg:ml-12">
       {/* Header with sort */}
       <div className="flex relative text-[16px] font-black p-5 items-center">
         <h1 className="mr-5 text-[20px]">

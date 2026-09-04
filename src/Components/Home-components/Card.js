@@ -1,117 +1,104 @@
-import { useContext, useState } from "react";
-import { Link } from "react-router-dom";
-import { CallContext } from "../../Hooks/CallingCotext";
-const listIcons = ["fa-indent", "fa-arrow-down", "fa-share"];
-const listIconsName = ["Add to queue", "Download", "Share"];
+import { useContext, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { CallContext } from '../../Hooks/CallingCotext'
 
-const Card = ({ item }) => {
-  const [videoOptions, setvideoOptions] = useState(false);
+const listIcons = ['fa-indent', 'fa-arrow-down', 'fa-share']
+const listIconsName = ['Add to queue', 'Download', 'Share']
+
+const Card = ({ item, channelLogo }) => {
+  const [videoOptions, setvideoOptions] = useState(false)
+  const { setdirectSearch } = useContext(CallContext)
+
+  useEffect(() => {
+    setdirectSearch(false)
+  }, [setdirectSearch])
+
   function DateConverter(currentDate) {
-    const date = new Date(currentDate);
-    let Month;
-    switch (date.getMonth()) {
-      case 0:
-        Month = "Jan";
-        break;
-      case 1:
-        Month = "Feb";
-        break;
-      case 2:
-        Month = "Mar";
-        break;
-      case 3:
-        Month = "April";
-        break;
-      case 4:
-        Month = "May";
-        break;
-      case 5:
-        Month = "June";
-        break;
-      case 6:
-        Month = "July";
-        break;
-      case 7:
-        Month = "Aug";
-        break;
-      case 8:
-        Month = "Sep";
-        break;
-      case 9:
-        Month = "Oct";
-        break;
-      case 10:
-        Month = "Nov";
-        break;
-      case 11:
-        Month = "Dec";
-        break;
-
-      default:
-        Month = "";
-        break;
-    }
-    return `${Month},${date.getFullYear()}`;
+    const date = new Date(currentDate)
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'April',
+      'May',
+      'June',
+      'July',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ]
+    return `${months[date.getMonth()]}, ${date.getFullYear()}`
   }
-  console.log(CallContext);
-  const {setdirectSearch } = useContext(CallContext)
-  setdirectSearch(false)
-  return (
-    <Link
-      key={item.id.videoId}
-      to={`./Video/${item.id.videoId}`}
-      className="flex hover:cursor-pointer  text-[#F0F0F0] relative flex-col rounded-sm   w-[400px] "
-    >
-      <img
-        src={item.snippet.thumbnails.high.url}
-        className="overflow-hidden rounded-xl"
-        alt=""
-      />
 
-      <div className="flex justify-start flex-start p-2 ">
-        <div className="flex rounded-[100px] my-2 items-baseline mx-3">
-          <img
-            src="./favicon.ico"
-            className="w-[100%] rounded-[100px]"
-            alt=""
-          />
+  const videoId = item?.id?.videoId || (typeof item?.id === 'string' ? item.id : null)
+  if (!videoId || !item?.snippet) return null
+
+  const thumb =
+    item.snippet.thumbnails?.medium?.url ||
+    item.snippet.thumbnails?.high?.url ||
+    item.snippet.thumbnails?.default?.url
+
+  const channelId = item.snippet.channelId
+  const logo = channelLogo || '/favicon.ico'
+
+  return (
+    <div className="flex text-[#F0F0F0] relative flex-col rounded-sm w-full min-w-0">
+      <Link to={`/Video/${videoId}`} className="hover:cursor-pointer">
+        <div className="w-full aspect-video overflow-hidden rounded-xl bg-[#272727]">
+          <img src={thumb} className="w-full h-full object-cover" alt="" />
         </div>
-        <div>
-          <p>{item.snippet.title}</p>
-          <a href="/" className="flex items-center">
+      </Link>
+
+      <div className="flex justify-start items-start p-2 gap-2">
+        <Link
+          to={channelId ? `/channel/${channelId}` : '#'}
+          className="flex-shrink-0 rounded-full my-1 w-9 h-9 overflow-hidden bg-[#272727]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <img src={logo} className="w-full h-full object-cover" alt="" />
+        </Link>
+        <div className="min-w-0 flex-1">
+          <Link to={`/Video/${videoId}`}>
+            <p className="text-sm sm:text-[15px] font-medium line-clamp-2 leading-snug hover:cursor-pointer">
+              {item.snippet.title}
+            </p>
+          </Link>
+          <Link
+            to={channelId ? `/channel/${channelId}` : '#'}
+            className="flex items-center text-sm text-[#AAAAAA] mt-1 truncate hover:text-white"
+          >
             {item.snippet.channelTitle}
-            <i className="fa-solid fa-circle-check mx-1 text-gray-600"></i>
-          </a>
-          <div>9.3M Views {DateConverter(item.snippet.publishTime)}</div>
+            <i className="fa-solid fa-circle-check mx-1 text-gray-600 text-xs"></i>
+          </Link>
+          <div className="text-xs sm:text-sm text-[#AAAAAA]">
+            {DateConverter(item.snippet.publishTime || item.snippet.publishedAt)}
+          </div>
         </div>
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           <i
-            onClick={() => {
-              setvideoOptions(!videoOptions);
-              console.log("han");
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setvideoOptions(!videoOptions)
             }}
-            className="fa-solid fa-ellipsis-vertical "
+            className="fa-solid fa-ellipsis-vertical p-2 cursor-pointer"
           ></i>
           {videoOptions ? (
-            <div className="absolute -right-29  rounded bg-[#282828] z-10 text-[14px] text-[#F1F1F1] overflow-hidden w-[250px]">
-              {listIconsName.map((item, i) => {
-                return (
-                  <div key={i} className="hover:bg-[#3E3E3E]   p-2">
-                    <i
-                      class={`fa-solid hover:bg-[#3E3E3E] text-[18px] m-2 ${listIcons[i]}`}
-                    ></i>
-                    {item}
-                  </div>
-                );
-              })}
+            <div className="absolute right-0 rounded bg-[#282828] z-10 text-[14px] text-[#F1F1F1] overflow-hidden w-[200px] sm:w-[250px]">
+              {listIconsName.map((label, i) => (
+                <div key={i} className="hover:bg-[#3E3E3E] p-2">
+                  <i className={`fa-solid text-[18px] m-2 ${listIcons[i]}`}></i>
+                  {label}
+                </div>
+              ))}
             </div>
-          ) : (
-            ""
-          )}
+          ) : null}
         </div>
       </div>
-    </Link>
-  );
-};
+    </div>
+  )
+}
 
-export default Card;
+export default Card

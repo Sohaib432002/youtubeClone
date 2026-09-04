@@ -10,7 +10,7 @@ const DotsOption = ({ ListOptions, isshowsearchBar }) => {
   // const [Restricted, setRestricted] = useState("");
   // const [Location, setLocation] = useState("");
   const [options, setOptions] = useState(false);
-  const [select, setselect] = useState("dark");
+  // appearance selection reserved for future menu
   // const optionsSelector = (options, Name) => {
   //   <div className="w-[20rem] bg-[#282828] text-white overflow-hidden mb-2 rounded-lg  top-[50px] right-[8rem] absolute">
   //     <div className="flex items-center text-[16px] bold p-2">

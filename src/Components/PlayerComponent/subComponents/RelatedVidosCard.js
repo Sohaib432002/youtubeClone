@@ -66,7 +66,7 @@ function DateConverter(currentDate) {
 }
 const RelatedVidosCard = ({ setupdate, windowResize,RelatedVidoesChannelsData, item }) => {
   const [options, setOptions] = useState(false);
-  const [hoverVideo, sethoverVideo] = useState(false);
+  const [, sethoverVideo] = useState(false);
  console.log(RelatedVidoesChannelsData);
 
   return (

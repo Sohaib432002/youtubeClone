@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from 'react'
 import { ThemeContext } from '../../Hooks/ThemeContext'
+import { getChannelsByIds } from '../../utils/youtubeApi'
 import Scrollbar from '../Navbar-Components/ScrollBar'
 import RelatedVideosShel from './subComponents/RelatedVideosShel'
 import RelatedVidosCard from './subComponents/RelatedVidosCard'
@@ -7,29 +8,22 @@ import RelatedVidosCard from './subComponents/RelatedVidosCard'
 const RelatedVideos = ({ randomVideosData, setupdate }) => {
   const { windowResize } = useContext(ThemeContext)
 
-  const idslistVidos =
-    randomVideosData?.items?.map((item) => item?.id?.videoId).filter(Boolean) || []
-
   const idslistChaneels =
     randomVideosData?.items?.map((item) => item?.snippet?.channelId).filter(Boolean) || []
 
-  const apikeyClone2 = 'AIzaSyC6eVSk2EOI3cu9SzITToFW1s0z2ns-eg0'
-  const [RelatedVidoesChannelsData, setRelatedVideosChannelsData] = useState([])
+  const channelIdsKey = idslistChaneels.join(',')
+  const [RelatedVidoesChannelsData, setRelatedVideosChannelsData] = useState({ items: [] })
 
   useEffect(() => {
-    if (idslistChaneels.length < 1) return
-
-    fetch(
-      `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${idslistChaneels.join(
-        ','
-      )}&key=${apikeyClone2}`
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        setRelatedVideosChannelsData(data)
-      })
-      .catch((err) => console.error('error', err))
-  }, [idslistChaneels])
+    if (!channelIdsKey) return
+    let cancelled = false
+    getChannelsByIds(channelIdsKey.split(',')).then((data) => {
+      if (!cancelled) setRelatedVideosChannelsData(data || { items: [] })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [channelIdsKey])
 
   return (
     <>

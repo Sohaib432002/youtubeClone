@@ -1,33 +1,73 @@
 import { useEffect, useState } from 'react'
-import VideoCard from './subComponents/VideoCard'
+import { useOutletContext } from 'react-router'
+import { getChannelLogoMap, getMostPopular } from '../../utils/youtubeApi'
+import Card from '../Home-components/Card'
 
 const Videos = () => {
+  const outlet = useOutletContext() || {}
   const [vidoelistData, setVideolistData] = useState([])
-  const API_KEY = 'AIzaSyBbTteUucVkGoCO0ZQ4GwitYZNyqqRPYzY'
+  const [logoMap, setLogoMap] = useState({})
+  const [loading, setLoading] = useState(true)
+
   useEffect(() => {
-    const fetchVideos = async () => {
-      try {
-        const res = await fetch(
-          `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&chart=mostPopular&regionCode=US&maxResults=100&key=${API_KEY}`
+    let cancelled = false
+    const load = async () => {
+      if (outlet.channelVideos?.length) {
+        setVideolistData(
+          outlet.channelVideos.map((v) => ({
+            ...v,
+            id: v.id?.videoId || v.id,
+            snippet: v.snippet,
+          }))
         )
-        const data = await res.json()
-        setVideolistData(data.items || [])
-      } catch (error) {
-        console.error('Error fetching videos:', error)
+        const map = await getChannelLogoMap(
+          outlet.channelVideos.map((v) => v.snippet?.channelId)
+        )
+        if (!cancelled) {
+          setLogoMap(map)
+          setLoading(false)
+        }
+        return
+      }
+      const data = await getMostPopular(48)
+      if (cancelled) return
+      const items = data?.items || []
+      setVideolistData(items)
+      const map = await getChannelLogoMap(items.map((v) => v.snippet?.channelId))
+      if (!cancelled) {
+        setLogoMap(map)
+        setLoading(false)
       }
     }
-    fetchVideos()
-  }, [])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [outlet.channelVideos])
+
+  if (loading) {
+    return <p className="text-[#AAAAAA] py-6 text-center">Loading videos...</p>
+  }
+
   return (
-    <>
-      <div className="grid vidocardlist grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 my-5">
-        {vidoelistData.map((item)=>{
-              return(
-                <VideoCard item={item} />
-              )
-        })}
-      </div>
-    </>
+    <div className="grid vidocardlist grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 my-5 px-1">
+      {vidoelistData.map((item) => {
+        const normalized =
+          item.id?.videoId || typeof item.id === 'string'
+            ? {
+                id: { videoId: item.id?.videoId || item.id },
+                snippet: item.snippet,
+              }
+            : item
+        return (
+          <Card
+            key={normalized.id?.videoId || item.id}
+            item={normalized}
+            channelLogo={logoMap[item.snippet?.channelId]}
+          />
+        )
+      })}
+    </div>
   )
 }
 

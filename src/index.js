@@ -16,9 +16,21 @@ import Result from './Components/Result'
 import VideoPlayer from './Components/VideoPlayer'
 import { CallContextFun } from './Hooks/CallingCotext'
 import { ThemeProvider } from './Hooks/ThemeContext'
+import { AuthProvider } from './Hooks/AuthContext'
+import { HistoryProvider } from './Hooks/HistoryContext'
 import './index.css'
 import PostDetails from './Components/ChannelDetails-Components/PostDetails'
 import PostComments from './Components/ChannelDetails-Components/PostComments'
+
+const channelChildren = [
+  { path: '', element: <AllVidoesHome /> },
+  { path: 'videolist', element: <Video /> },
+  { path: 'Playlist', element: <Playlist /> },
+  { path: 'Posts', element: <PostDetails /> },
+  { path: 'Posts/:post', element: <PostComments /> },
+  { path: 'videolist/:id', element: <VideoPlayer /> },
+]
+
 const router = createBrowserRouter([
   {
     path: '/',
@@ -28,70 +40,26 @@ const router = createBrowserRouter([
         path: '/',
         element: <MenuOptions />,
         children: [
+          { path: '/', element: <Home /> },
+          { path: '/shorts', element: <Shorts /> },
+          { path: '/Subscriptions', element: <Subscriptions /> },
+          { path: '/you', element: <Self /> },
+          { path: '/history', element: <History /> },
+          { path: '/result/:text', element: <Result /> },
           {
-            path: '/',
-            element: <Home />,
-          },
-          {
-            path: '/shorts',
-            element: <Shorts />,
-          },
-          {
-            path: '/Subscriptions',
-            element: <Subscriptions />,
-          },
-          {
-            path: '/you',
-            element: <Self />,
-          },
-          {
-            path: '/history',
-            element: <History />,
-          },
-          {
-            path: '/result/:text',
-            element: <Result />,
-          },
-          {
-            path: '/CD/',
+            path: '/channel/:channelId',
             element: <ChannelDetails />,
-            children: [
-              {
-                path: '/CD/',
-                element: <AllVidoesHome />,
-              },
-              {
-                path: '/CD/videolist',
-                element: <Video />,
-              },
-              {
-                path: '/CD/Playlist',
-                element: <Playlist />,
-              },
-              {
-                path: '/CD/Posts',
-                element: <PostDetails />,
-              },
-              {
-                path: '/CD/Posts/:post',
-                element: <PostComments />,
-              },
-              {
-                path: '/CD/videolist/:id',
-                element: <VideoPlayer />,
-              },
-            ],
+            children: channelChildren,
+          },
+          {
+            path: '/CD',
+            element: <ChannelDetails />,
+            children: channelChildren,
           },
         ],
       },
-      {
-        path: '/Video/:id',
-        element: <VideoPlayer />,
-      },
-      {
-        path: '/result/:text/Video/:id',
-        element: <VideoPlayer />,
-      },
+      { path: '/Video/:id', element: <VideoPlayer /> },
+      { path: '/result/:text/Video/:id', element: <VideoPlayer /> },
     ],
   },
 ])
@@ -99,9 +67,13 @@ const router = createBrowserRouter([
 const root = document.getElementById('root')
 
 ReactDOM.createRoot(root).render(
-  <CallContextFun>
-    <ThemeProvider>
-      <RouterProvider router={router} />
-    </ThemeProvider>
-  </CallContextFun>
+  <AuthProvider>
+    <HistoryProvider>
+      <CallContextFun>
+        <ThemeProvider>
+          <RouterProvider router={router} />
+        </ThemeProvider>
+      </CallContextFun>
+    </HistoryProvider>
+  </AuthProvider>
 )
