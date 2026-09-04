@@ -21,6 +21,7 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 402px);
   gap: 1.5rem;
+  width: 100%;
 }
 
 .comments-section-bottom {

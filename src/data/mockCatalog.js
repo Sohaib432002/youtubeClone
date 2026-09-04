@@ -524,25 +524,118 @@ export function getCatalogVideo(videoId) {
     null
 }
 
-export function getRelated(videoId, limit = 20) {
+const STOP_WORDS = new Set([
+  'the', 'a', 'an', 'and', 'or', 'of', 'to', 'in', 'on', 'for', 'with', 'is', 'are',
+  'you', 'your', 'this', 'that', 'from', 'how', 'what', 'why', 'when', 'full', 'complete',
+  'video', 'official', 'part', 'episode', 'watch', 'new', 'best', 'top',
+])
+
+/** Extract meaningful tokens from a title / description for related scoring */
+export function extractKeywords(text = '') {
+  return String(text)
+    .toLowerCase()
+    .replace(/[#|·•]/g, ' ')
+    .split(/[^a-z0-9+]+/)
+    .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
+}
+
+function scoreRelated(candidate, current, keywords) {
+  let score = 0
+  const title = `${candidate.title} ${candidate.description}`.toLowerCase()
+  if (current?.category && candidate.category === current.category) score += 50
+  if (current?.channelId && candidate.channelId === current.channelId) score += 25
+  keywords.forEach((kw) => {
+    if (candidate.title.toLowerCase().includes(kw)) score += 12
+    else if (title.includes(kw)) score += 4
+  })
+  // Prefer longer-form catalog videos
+  if (!candidate.isShort && (candidate.durationSec || 0) >= 90) score += 8
+  return score
+}
+
+/**
+ * Related videos: long-form only (no Shorts), ranked by category / channel / keywords.
+ */
+export function getRelated(videoId, limit = 20, hint = {}) {
   const current = getCatalogVideo(videoId)
-  const pool = VIDEOS.filter((v) => v.videoId !== videoId)
-  const related = current
-    ? [
-        ...pool.filter((v) => v.category === current.category),
-        ...pool.filter((v) => v.channelId === current.channelId),
-        ...pool,
-      ]
-    : pool
-  const seen = new Set()
-  const unique = []
-  for (const v of related) {
-    if (seen.has(v.id)) continue
-    seen.add(v.id)
-    unique.push(v)
-    if (unique.length >= limit) break
+  const titleHint = hint.title || current?.title || ''
+  const categoryHint = hint.category || current?.category || ''
+  const channelHint = hint.channelId || current?.channelId || ''
+  const keywords = extractKeywords(
+    `${titleHint} ${categoryHint} ${hint.description || current?.description || ''}`
+  )
+
+  const currentMeta = current || {
+    category: categoryHint,
+    channelId: channelHint,
+    title: titleHint,
   }
-  return unique.map(toSearchItem)
+
+  // Never include Shorts in related
+  const pool = VIDEOS.filter(
+    (v) => v.videoId !== videoId && !v.isShort && (v.durationSec || 120) >= 60
+  )
+
+  const ranked = pool
+    .map((v) => ({ v, score: scoreRelated(v, currentMeta, keywords) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+
+  // If too few strong matches, fill with same-category then same-channel only (still no random dump)
+  const picked = []
+  const seen = new Set()
+  const push = (v) => {
+    if (!v || seen.has(v.id) || seen.has(v.videoId)) return
+    seen.add(v.id)
+    seen.add(v.videoId)
+    picked.push(v)
+  }
+
+  ranked.forEach(({ v }) => {
+    if (picked.length < limit) push(v)
+  })
+
+  if (picked.length < Math.min(8, limit) && categoryHint) {
+    pool
+      .filter((v) => v.category === categoryHint)
+      .forEach((v) => {
+        if (picked.length < limit) push(v)
+      })
+  }
+
+  if (picked.length < Math.min(6, limit) && channelHint) {
+    pool
+      .filter((v) => v.channelId === channelHint)
+      .forEach((v) => {
+        if (picked.length < limit) push(v)
+      })
+  }
+
+  return picked.slice(0, limit).map((v) => {
+    const item = toSearchItem(v)
+    // Force landscape YouTube thumbnails (mq/hq are 16:9)
+    const landscape = `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`
+    item.snippet.thumbnails = {
+      default: { url: landscape },
+      medium: { url: landscape },
+      high: { url: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg` },
+    }
+    return item
+  })
+}
+
+/** True if a search/API item looks like a Short */
+export function isShortSearchItem(item) {
+  if (!item) return true
+  if (item.meta?.isShort) return true
+  const title = (item.snippet?.title || '').toLowerCase()
+  const desc = (item.snippet?.description || '').toLowerCase()
+  if (title.includes('#shorts') || title.includes('#short')) return true
+  if (desc.includes('#shorts')) return true
+  if (item.meta?.durationSec && item.meta.durationSec > 0 && item.meta.durationSec <= 60) {
+    return true
+  }
+  return false
 }
 
 export function getShortsPage(start = 0, count = 12, category = 'All') {

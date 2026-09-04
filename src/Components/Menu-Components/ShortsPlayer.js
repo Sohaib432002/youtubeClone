@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useContext } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { SHORTS } from '../../data/mockCatalog'
 import { formatViews } from '../../utils/format'
 import { useWatchHistory } from '../../Hooks/HistoryContext'
 import { useLikes } from '../../Hooks/LikesContext'
+import { ThemeContext } from '../../Hooks/ThemeContext'
 import SubscribeButton from '../ui/SubscribeButton'
 
 const ShortsPlayer = () => {
@@ -11,9 +12,15 @@ const ShortsPlayer = () => {
   const navigate = useNavigate()
   const { addToHistory } = useWatchHistory()
   const { isLiked, toggleLike, getLikeCount, syncLikeBase } = useLikes()
+  const { setWatchMode } = useContext(ThemeContext)
   const containerRef = useRef(null)
   const [active, setActive] = useState(0)
   const [dislikes, setDislikes] = useState({})
+
+  useEffect(() => {
+    setWatchMode(true)
+    return () => setWatchMode(false)
+  }, [setWatchMode])
 
   const uniqueShorts = useMemo(() => {
     const seen = new Set()

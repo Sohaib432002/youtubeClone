@@ -1,10 +1,12 @@
-import React, { createContext, useEffect, useState } from 'react'
+import React, { createContext, useCallback, useEffect, useState } from 'react'
 import { CATEGORY_LIST } from '../data/mockCatalog'
 
 export const ThemeContext = createContext()
 
-/** Desktop/large: expanded sidebar always open */
+/** Desktop/large: expanded sidebar always open (except watch pages) */
 export const DESKTOP_SIDEBAR_MIN = 1024
+export const SIDEBAR_WIDTH = 240
+export const MINI_SIDEBAR_WIDTH = 72
 
 export const CATEGORIES = CATEGORY_LIST.map((id) => ({
   id,
@@ -22,14 +24,18 @@ export const ThemeProvider = ({ children }) => {
   const [isShowScrollbar, setisShowScrollbar] = useState(true)
   const [activeCategory, setActiveCategory] = useState('All')
   const [miniSidebar, setMiniSidebar] = useState(false)
+  /** Watch/player pages use mini guide + optional overlay (YouTube-like) */
+  const [watchMode, setWatchMode] = useState(false)
+
+  const isDesktopSidebar = windowResize >= DESKTOP_SIDEBAR_MIN
 
   useEffect(() => {
     const onResize = () => {
       const w = window.innerWidth
       setwindowResize(w)
-      // Desktop: force expanded. Tablet/mobile: collapse drawer.
       if (w >= DESKTOP_SIDEBAR_MIN) {
-        setisShowLeftbar(true)
+        // Home-style pages keep expanded; watch pages keep mini unless user opened overlay
+        setisShowLeftbar((prev) => (watchMode ? prev : true))
         setMiniSidebar(false)
       } else {
         setisShowLeftbar(false)
@@ -38,18 +44,44 @@ export const ThemeProvider = ({ children }) => {
     window.addEventListener('resize', onResize)
     onResize()
     return () => window.removeEventListener('resize', onResize)
-  }, [])
+  }, [watchMode])
 
-  const toggleLeftbar = () => {
-    // On desktop the sidebar stays open — hamburger only for smaller screens
-    if (windowResize >= DESKTOP_SIDEBAR_MIN) return
+  // Entering watch mode: collapse to mini guide on desktop
+  useEffect(() => {
+    if (watchMode) {
+      if (windowResize >= DESKTOP_SIDEBAR_MIN) setisShowLeftbar(false)
+    } else if (windowResize >= DESKTOP_SIDEBAR_MIN) {
+      setisShowLeftbar(true)
+    }
+  }, [watchMode, windowResize])
+
+  const toggleLeftbar = useCallback(() => {
+    // Desktop home: sidebar stays expanded (hamburger no-op)
+    if (windowResize >= DESKTOP_SIDEBAR_MIN && !watchMode) return
     setisShowLeftbar((prev) => !prev)
-  }
+  }, [watchMode, windowResize])
 
   const categoryQuery =
     CATEGORIES.find((c) => c.id === activeCategory)?.query || 'trending'
 
-  const isDesktopSidebar = windowResize >= DESKTOP_SIDEBAR_MIN
+  /**
+   * Content offset for fixed sidebars:
+   * - Desktop watch + overlay closed → mini 72px
+   * - Desktop watch + overlay open → still 72px (overlay does not push)
+   * - Desktop home → 240px
+   * - Mobile → 0 (overlay only)
+   */
+  const contentOffsetPx = !isDesktopSidebar
+    ? 0
+    : watchMode
+      ? MINI_SIDEBAR_WIDTH
+      : SIDEBAR_WIDTH
+
+  const showMiniGuide = isDesktopSidebar && watchMode
+  const showExpandedDrawer =
+    (!isDesktopSidebar && isShowLeftbar) ||
+    (isDesktopSidebar && watchMode && isShowLeftbar) ||
+    (isDesktopSidebar && !watchMode)
 
   return (
     <ThemeContext.Provider
@@ -68,6 +100,13 @@ export const ThemeProvider = ({ children }) => {
         setMiniSidebar,
         isDesktopSidebar,
         desktopSidebarMin: DESKTOP_SIDEBAR_MIN,
+        watchMode,
+        setWatchMode,
+        contentOffsetPx,
+        showMiniGuide,
+        showExpandedDrawer,
+        sidebarWidth: SIDEBAR_WIDTH,
+        miniSidebarWidth: MINI_SIDEBAR_WIDTH,
       }}
     >
       {children}

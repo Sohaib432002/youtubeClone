@@ -61,7 +61,7 @@ const Navbar = ({ searchIcon, setSearchIcon }) => {
 
   return (
     <>
-      <div className="fixed w-full left-0 top-0 z-[40] backdrop-blur-[8px] bg-[#0F0F0F]/95 px-2 sm:px-3 navbar">
+      <div className="fixed w-full left-0 top-0 z-50 backdrop-blur-[8px] bg-[#0F0F0F]/95 px-2 sm:px-3 navbar">
         <div className="flex items-center justify-between gap-1 sm:gap-2 py-1 min-h-[56px]">
           <Logo setleftBar={toggleLeftbar} leftBar={isShowLeftbar} />
 
