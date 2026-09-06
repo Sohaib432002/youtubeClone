@@ -86,9 +86,7 @@ const Navbar = ({ searchIcon, setSearchIcon }) => {
               <i className="fa-solid fa-magnifying-glass text-lg"></i>
             </button>
 
-            <div className="hidden sm:block">
-              <CreateMenu />
-            </div>
+            <CreateMenu />
             <button
               type="button"
               className="relative hidden sm:flex w-10 h-10 items-center justify-center rounded-full hover:bg-[#272727] text-white"

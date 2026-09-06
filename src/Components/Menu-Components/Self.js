@@ -5,6 +5,7 @@ import { useWatchHistory } from '../../Hooks/HistoryContext'
 import { useLikes } from '../../Hooks/LikesContext'
 import { useWatchLater } from '../../Hooks/WatchLaterContext'
 import { usePlaylists } from '../../Hooks/PlaylistsContext'
+import { useStudio } from '../../Hooks/StudioContext'
 import { ThemeContext } from '../../Hooks/ThemeContext'
 
 const Self = () => {
@@ -13,7 +14,9 @@ const Self = () => {
   const { likedVideos } = useLikes()
   const { watchLater } = useWatchLater()
   const { playlists } = usePlaylists()
+  const { getMyChannel, myVideos } = useStudio()
   const { isShowLeftbar, windowResize, setisShowScrollbar } = useContext(ThemeContext)
+  const myChannel = getMyChannel()
 
   useEffect(() => {
     setisShowScrollbar(false)
@@ -71,13 +74,32 @@ const Self = () => {
           <div>
             <p className="text-xl font-medium">{user.name}</p>
             {user.email ? <p className="text-[#AAAAAA] text-sm">{user.email}</p> : null}
-            <button
-              type="button"
-              onClick={signOut}
-              className="mt-2 text-sm text-[#3ea6ff] hover:underline"
-            >
-              Sign out
-            </button>
+            <div className="flex flex-wrap gap-3 mt-2">
+              {myChannel ? (
+                <Link to={`/channel/${myChannel.id}`} className="text-sm text-[#3ea6ff] hover:underline">
+                  View your channel
+                </Link>
+              ) : (
+                <Link to="/studio/channel" className="text-sm text-[#3ea6ff] hover:underline">
+                  Create a channel
+                </Link>
+              )}
+              <Link to="/studio/upload" className="text-sm text-[#3ea6ff] hover:underline">
+                Upload video
+              </Link>
+              <button
+                type="button"
+                onClick={signOut}
+                className="text-sm text-[#3ea6ff] hover:underline"
+              >
+                Sign out
+              </button>
+            </div>
+            {myChannel ? (
+              <p className="text-xs text-[#aaa] mt-2">
+                {myChannel.title} · {myVideos.length} video{myVideos.length === 1 ? '' : 's'}
+              </p>
+            ) : null}
           </div>
         </div>
       ) : (

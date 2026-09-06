@@ -4,19 +4,22 @@ import CommentSkel from './subComponents/CommentSkel'
 import { useAuth } from '../../Hooks/AuthContext'
 import { formatViews } from '../../utils/format'
 
-const Comments = ({ fetchData, commentData }) => {
+const Comments = ({ fetchData, commentData, collapsed = false }) => {
   const { user, isSignedIn, openSignIn } = useAuth()
   const [isCommenting, setIsCommenting] = useState(false)
   const [sortOptions, setSortOptions] = useState(false)
   const [sortBy, setSortBy] = useState('top')
   const [writeComment, setWriteComment] = useState('')
   const [localComments, setLocalComments] = useState([])
+  const [open, setOpen] = useState(!collapsed)
 
   const videoId =
     (fetchData && fetchData.items && fetchData.items[0] && fetchData.items[0].id) || ''
   useEffect(() => {
     setLocalComments([])
-  }, [videoId])
+    setIsCommenting(false)
+    setOpen(!collapsed)
+  }, [videoId, collapsed])
 
   const channelName = user?.name || 'YouTubeClone User'
   const channelId = user?.handle || `@${(user?.name || 'user').toLowerCase().replace(/\s+/g, '')}`
@@ -79,10 +82,34 @@ const Comments = ({ fetchData, commentData }) => {
   const count =
     Number(fetchData?.items?.[0]?.statistics?.commentCount || 0) + localComments.length
 
+  if (collapsed && !open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full mt-3 mb-1 flex items-center justify-between gap-3 rounded-xl bg-[#272727] hover:bg-[#3f3f3f] text-white px-4 py-3"
+      >
+        <span className="text-sm font-medium">
+          {formatViews(count)} Comments
+        </span>
+        <i className="fa-solid fa-chevron-down text-xs text-[#aaa]"></i>
+      </button>
+    )
+  }
+
   return (
     <div className="max-w-[1227px] player text-white rounded-[10px] mx-2 sm:mx-4 md:ml-6 lg:ml-0 mt-4">
       <div className="flex relative text-[16px] p-1 sm:p-2 items-center gap-4">
         <h2 className="text-xl font-bold">{formatViews(count)} Comments</h2>
+        {collapsed ? (
+          <button
+            type="button"
+            className="ml-auto text-sm text-[#aaa] hover:text-white"
+            onClick={() => setOpen(false)}
+          >
+            Hide
+          </button>
+        ) : null}
         <button
           type="button"
           className="cursor-pointer flex items-center gap-2 text-sm font-medium"
@@ -151,7 +178,6 @@ const Comments = ({ fetchData, commentData }) => {
               onChange={(e) => setWriteComment(e.target.value)}
               className="w-full px-1 py-2 bg-transparent outline-none border-b border-[#3f3f3f] focus:border-white text-base"
               placeholder="Write a comment..."
-              autoFocus
             />
 
             <div className="flex justify-end gap-2 my-3">

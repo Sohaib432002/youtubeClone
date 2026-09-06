@@ -32,6 +32,9 @@ import { LikesProvider } from './Hooks/LikesContext'
 import { SubscriptionsProvider } from './Hooks/SubscriptionsContext'
 import { WatchLaterProvider } from './Hooks/WatchLaterContext'
 import { PlaylistsProvider } from './Hooks/PlaylistsContext'
+import { StudioProvider } from './Hooks/StudioContext'
+import CreateChannel from './Components/Studio/CreateChannel'
+import UploadVideo from './Components/Studio/UploadVideo'
 import './index.css'
 import './App.css'
 import PostDetails from './Components/ChannelDetails-Components/PostDetails'
@@ -74,6 +77,8 @@ const router = createBrowserRouter([
           { path: '/playlists', element: <PlaylistsPage /> },
           { path: '/playlist/:playlistId', element: <PlaylistDetail /> },
           { path: '/settings', element: <Settings /> },
+          { path: '/studio/upload', element: <UploadVideo /> },
+          { path: '/studio/channel', element: <CreateChannel /> },
           { path: '/result/:text', element: <Result /> },
           {
             path: '/channel/:channelId',
@@ -104,11 +109,13 @@ ReactDOM.createRoot(root).render(
           <SubscriptionsProvider>
             <WatchLaterProvider>
               <PlaylistsProvider>
-                <CallContextFun>
-                  <ThemeProvider>
-                    <RouterProvider router={router} />
-                  </ThemeProvider>
-                </CallContextFun>
+                <StudioProvider>
+                  <CallContextFun>
+                    <ThemeProvider>
+                      <RouterProvider router={router} />
+                    </ThemeProvider>
+                  </CallContextFun>
+                </StudioProvider>
               </PlaylistsProvider>
             </WatchLaterProvider>
           </SubscriptionsProvider>

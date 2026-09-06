@@ -1,6 +1,13 @@
 import { extractKeywords } from '../data/mockCatalog'
 import { inferCategoryFromText, scoreCategoryMatch } from './categoryMatch'
-import { parseIsoDuration } from './format'
+import { clockFromSeconds, parseIsoDuration } from './format'
+
+function displayDuration(item) {
+  const raw = item?.meta?.duration || item?.contentDetails?.duration || ''
+  if (!raw) return ''
+  if (String(raw).startsWith('PT')) return clockFromSeconds(parseIsoDuration(raw))
+  return raw
+}
 
 /** Always use YouTube 16:9 mq/hq thumbnails (not vertical Shorts crops). */
 export function landscapeThumbnail(videoId, fallback = '') {
@@ -131,7 +138,7 @@ export function normalizeFeedItem(it, category = 'All') {
       videoId,
       isShort: false,
       category: resolvedCategory,
-      duration: it.meta?.duration || it.contentDetails?.duration || '',
+      duration: displayDuration(it),
       views: it.meta?.views ?? it.statistics?.viewCount,
     },
   }

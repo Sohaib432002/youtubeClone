@@ -1,8 +1,9 @@
-import { useContext, useEffect, useMemo, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { ThemeContext } from '../Hooks/ThemeContext'
 import { useWatchHistory } from '../Hooks/HistoryContext'
-import { getVideoComments, getVideoDetails, getRelatedVideos } from '../utils/youtubeApi'
+import { useStudio, studioVideoToDetails, studioVideoToSearchItem } from '../Hooks/StudioContext'
+import { getVideoComments, getVideoDetails, getRelatedVideos, videoIdOf } from '../utils/youtubeApi'
 import { getCatalogVideo, getRelated, isShortSearchItem, toSearchItem } from '../data/mockCatalog'
 import Comments from './PlayerComponent/Comments'
 import Player from './PlayerComponent/Player'
@@ -19,10 +20,11 @@ function normalizeRelatedItem(it) {
     (typeof it.id === 'string' && it.id) || it.id?.videoId || it.meta?.videoId
   if (!videoId || !it.snippet) return null
   if (isShortSearchItem(it)) return null
-  const thumb = landscapeThumb(
-    videoId,
-    it.snippet.thumbnails?.medium?.url || it.snippet.thumbnails?.high?.url
-  )
+  const customThumb =
+    it.snippet.thumbnails?.high?.url || it.snippet.thumbnails?.medium?.url
+  const thumb = it.meta?.isStudio
+    ? customThumb || landscapeThumb(videoId)
+    : landscapeThumb(videoId, customThumb)
   return {
     ...it,
     id: { kind: 'youtube#video', videoId },
@@ -31,7 +33,7 @@ function normalizeRelatedItem(it) {
       thumbnails: {
         default: { url: thumb },
         medium: { url: thumb },
-        high: { url: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` },
+        high: { url: it.meta?.isStudio ? thumb : `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` },
       },
     },
     meta: {
@@ -43,6 +45,20 @@ function normalizeRelatedItem(it) {
   }
 }
 
+function mergeRelatedItems(incoming, prevItems, currentId, reset) {
+  const live = (incoming || []).map(normalizeRelatedItem).filter(Boolean)
+  const seen = new Set(
+    reset ? [currentId] : [currentId, ...(prevItems || []).map((r) => r.id?.videoId)]
+  )
+  const extra = live.filter((r) => {
+    const vid = r.id?.videoId
+    if (!vid || seen.has(vid)) return false
+    seen.add(vid)
+    return true
+  })
+  return { items: reset ? extra : [...(prevItems || []), ...extra], added: extra.length }
+}
+
 const VideoPlayer = () => {
   const location = useLocation()
   const { id, text } = useParams()
@@ -51,6 +67,8 @@ const VideoPlayer = () => {
   const [commentData, setCommentData] = useState({ items: [] })
   const [relatedData, setRelatedData] = useState({ items: [] })
   const [relatedLoading, setRelatedLoading] = useState(true)
+  const [relatedLoadingMore, setRelatedLoadingMore] = useState(false)
+  const [relatedHasMore, setRelatedHasMore] = useState(false)
   const [relatedError, setRelatedError] = useState('')
   const [update, setUpdate] = useState(0)
   const {
@@ -61,12 +79,27 @@ const VideoPlayer = () => {
     isDesktopSidebar,
   } = useContext(ThemeContext)
   const { addToHistory } = useWatchHistory()
+  const { getVideo, getVideosByChannel } = useStudio()
+
+  const relatedMetaRef = useRef({ title: '', description: '', channelId: '', stage: 0, token: '' })
+  const relatedBusyRef = useRef(false)
+  const relatedItemsRef = useRef([])
+
+  useEffect(() => {
+    relatedItemsRef.current = relatedData.items || []
+  }, [relatedData.items])
 
   useEffect(() => {
     setisShowScrollbar(false)
     setWatchMode(true)
     return () => setWatchMode(false)
   }, [setisShowScrollbar, setWatchMode])
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+  }, [id])
 
   useEffect(() => {
     if (!id || id === 'undefined') {
@@ -80,11 +113,17 @@ const VideoPlayer = () => {
       setRelatedLoading(true)
       setRelatedError('')
       setRelatedData({ items: [] })
+      setRelatedHasMore(false)
+      relatedMetaRef.current = { title: '', description: '', channelId: '', stage: 0, token: '' }
       setFetchData(null)
 
       let details = null
+      const studioVid = getVideo(id)
 
-      if (location.state?.items) {
+      if (studioVid) {
+        details = studioVideoToDetails(studioVid)
+        if (!cancelled) setFetchData(details)
+      } else if (location.state?.items) {
         details = location.state
         if (!cancelled) setFetchData(location.state)
       } else if (id) {
@@ -122,21 +161,25 @@ const VideoPlayer = () => {
 
       const catalog = getCatalogVideo(id)
       const snippet = details?.items?.[0]?.snippet
-      const title = snippet?.title || catalog?.title || text || ''
-      const description = snippet?.description || catalog?.description || ''
+      const title = snippet?.title || catalog?.title || studioVid?.title || text || ''
+      const description = snippet?.description || catalog?.description || studioVid?.description || ''
+      const channelId = snippet?.channelId || catalog?.channelId || studioVid?.channelId || ''
+
+      relatedMetaRef.current = { title, description, channelId, stage: 0, token: '' }
 
       if (id) {
         addToHistory({
           videoId: id,
           title,
-          thumbnail: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
-          channelTitle: snippet?.channelTitle || catalog?.channelTitle,
-          channelId: snippet?.channelId || catalog?.channelId,
-          channelLogo: catalog?.channelAvatar,
+          thumbnail:
+            studioVid?.thumbnail || `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
+          channelTitle: snippet?.channelTitle || catalog?.channelTitle || studioVid?.channelTitle,
+          channelId,
+          channelLogo: catalog?.channelAvatar || studioVid?.channelAvatar,
         })
       }
 
-      if (id) {
+      if (id && !studioVid) {
         const comments = await getVideoComments(id)
         if (!cancelled) {
           if (comments?.items?.length) setCommentData(comments)
@@ -159,44 +202,53 @@ const VideoPlayer = () => {
                 },
               ],
             })
+          } else {
+            setCommentData({ items: [] })
           }
         }
+      } else if (!cancelled) {
+        setCommentData({ items: [] })
       }
 
       try {
+        let relatedItems = []
+        if (studioVid) {
+          relatedItems = getVideosByChannel(studioVid.channelId)
+            .filter((v) => v.videoId !== id)
+            .map(studioVideoToSearchItem)
+            .filter(Boolean)
+        }
+
         const related = await getRelatedVideos(
-          {
-            videoId: id,
-            title,
-            description,
-            channelId: snippet?.channelId || catalog?.channelId,
-          },
+          { videoId: id, title, description, channelId },
           24
         )
         if (cancelled) return
 
-        let live = (related?.items || []).map(normalizeRelatedItem).filter(Boolean)
+        const live = [...relatedItems, ...(related?.items || [])]
+        let added = 0
+        setRelatedData((prev) => {
+          const next = mergeRelatedItems(live, prev.items, id, true)
+          added = next.added
+          return { items: next.items }
+        })
 
-        if (!live.length && catalog) {
-          live = getRelated(id, 24, {
+        relatedMetaRef.current.token = related?.nextPageToken || ''
+        relatedMetaRef.current.stage = related?.stage || 0
+        setRelatedHasMore(Boolean(related?.hasMore))
+
+        if (!added && catalog) {
+          const local = getRelated(id, 24, {
             title,
             category: catalog.category,
             description,
-            channelId: snippet?.channelId || catalog?.channelId,
-          }).map(normalizeRelatedItem).filter(Boolean)
-        }
-
-        if (live.length) {
-          const seen = new Set([id])
-          setRelatedData({
-            items: live.filter((r) => {
-              const vid = r.id?.videoId
-              if (!vid || seen.has(vid)) return false
-              seen.add(vid)
-              return true
-            }),
+            channelId,
           })
-        } else {
+          setRelatedData((prev) => ({
+            items: mergeRelatedItems(local, prev.items, id, true).items,
+          }))
+          setRelatedHasMore(false)
+        } else if (!added) {
           setRelatedError('No related videos found for this topic.')
         }
       } catch (_) {
@@ -206,11 +258,15 @@ const VideoPlayer = () => {
                 title,
                 category: catalog.category,
                 description,
-                channelId: snippet?.channelId || catalog?.channelId,
+                channelId,
               })
             : []
-          if (relatedLocal.length) setRelatedData({ items: relatedLocal })
-          else setRelatedError('Could not load related videos.')
+          if (relatedLocal.length) {
+            setRelatedData((prev) => ({
+              items: mergeRelatedItems(relatedLocal, prev.items, id, true).items,
+            }))
+          } else setRelatedError('Could not load related videos.')
+          setRelatedHasMore(false)
         }
       } finally {
         if (!cancelled) setRelatedLoading(false)
@@ -223,6 +279,42 @@ const VideoPlayer = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [update, id, text, location.state])
+
+  const loadMoreRelated = useCallback(async () => {
+    if (relatedBusyRef.current || !relatedHasMore || relatedLoading) return
+    relatedBusyRef.current = true
+    setRelatedLoadingMore(true)
+    const meta = relatedMetaRef.current
+    const excludeIds = (relatedItemsRef.current || []).map((it) => videoIdOf(it)).filter(Boolean)
+    try {
+      const more = await getRelatedVideos(
+        {
+          videoId: id,
+          title: meta.title,
+          description: meta.description,
+          channelId: meta.channelId,
+        },
+        24,
+        {
+          pageToken: meta.token,
+          excludeIds: [id, ...excludeIds],
+          stage: meta.stage,
+        }
+      )
+      setRelatedData((prev) => ({
+        items: mergeRelatedItems(more?.items || [], prev.items, id, false).items,
+      }))
+      relatedMetaRef.current.token = more?.nextPageToken || ''
+      relatedMetaRef.current.stage = more?.stage || meta.stage + 1
+      setRelatedHasMore(Boolean(more?.hasMore && (more.items || []).length))
+      if (!(more?.items || []).length) setRelatedHasMore(false)
+    } catch (_) {
+      setRelatedHasMore(false)
+    } finally {
+      relatedBusyRef.current = false
+      setRelatedLoadingMore(false)
+    }
+  }, [id, relatedHasMore, relatedLoading])
 
   const layoutPad = useMemo(() => {
     if (!isDesktopSidebar) return 'ml-0'
@@ -255,9 +347,15 @@ const VideoPlayer = () => {
         <div className="flex flex-col w-full min-w-0">
           <Player fetchData={fetchData} />
           <VideoDescription fetchData={fetchData} />
-          <div className="comments-section px-3 sm:px-0">
-            <Comments fetchData={fetchData} commentData={commentData} />
-          </div>
+          {stacked ? (
+            <div className="px-3 sm:px-0">
+              <Comments fetchData={fetchData} commentData={commentData} collapsed />
+            </div>
+          ) : (
+            <div className="comments-section px-3 sm:px-0">
+              <Comments fetchData={fetchData} commentData={commentData} />
+            </div>
+          )}
         </div>
 
         <aside className="min-w-0 w-full">
@@ -265,11 +363,11 @@ const VideoPlayer = () => {
             setupdate={setUpdate}
             randomVideosData={relatedData}
             loading={relatedLoading}
+            loadingMore={relatedLoadingMore}
             error={relatedError}
+            hasMore={relatedHasMore}
+            onLoadMore={loadMoreRelated}
           />
-          <div className="comments-section-bottom mt-4 px-3 sm:px-0">
-            <Comments fetchData={fetchData} commentData={commentData} />
-          </div>
         </aside>
       </div>
     </div>

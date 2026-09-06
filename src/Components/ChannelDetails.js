@@ -2,6 +2,7 @@ import { useContext, useEffect, useState } from 'react'
 import { Outlet, useParams } from 'react-router'
 import { ThemeContext } from '../Hooks/ThemeContext'
 import { useSubscriptions } from '../Hooks/SubscriptionsContext'
+import { useStudio, studioChannelToYt, studioVideoToSearchItem } from '../Hooks/StudioContext'
 import {
   getChannelsByIds,
   getChannelVideos,
@@ -27,6 +28,7 @@ const ChannelDetails = () => {
   const { channelId } = useParams()
   const { setisShowScrollbar } = useContext(ThemeContext)
   const { getSubscriberCount, ensureChannelCount } = useSubscriptions()
+  const { getChannel, getVideosByChannel } = useStudio()
   const [channelData, setChannelData] = useState(null)
   const [channelVideos, setChannelVideos] = useState([])
   const [channelPlaylists, setChannelPlaylists] = useState([])
@@ -62,6 +64,29 @@ const ChannelDetails = () => {
       setChannelLive([])
       setChannelPosts([])
       setChannelSections([])
+
+      const studioCh = getChannel(id)
+      if (studioCh) {
+        const vids = getVideosByChannel(studioCh.id)
+          .map(studioVideoToSearchItem)
+          .filter(Boolean)
+        const fake = studioChannelToYt(studioCh, getVideosByChannel(studioCh.id))
+        ensureChannelCount(studioCh.id, studioCh.subscribers || 0)
+        const playlists = buildMockPlaylists(studioCh.id, vids, studioCh.title)
+        const posts = buildChannelPosts(fake, vids)
+        if (!cancelled) {
+          setChannelData(fake)
+          setChannelVideos(vids)
+          setChannelPlaylists(playlists)
+          setChannelShorts([])
+          setChannelLive([])
+          setChannelPosts(posts)
+          setChannelSections([])
+          setExtrasReady(true)
+          setLoading(false)
+        }
+        return
+      }
 
       const local = CHANNELS.find((c) => c.id === id)
       if (local) {

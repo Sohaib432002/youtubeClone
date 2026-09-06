@@ -61,11 +61,11 @@ const VideoReviewOptions = ({ fetchData }) => {
   }, [channelId, originalSubs, syncSubscriberBase])
 
   useEffect(() => {
-    if (catalog?.channelAvatar) {
-      setChannelLogo(catalog.channelAvatar)
+    if (catalog?.channelAvatar || video?.meta?.channelAvatar) {
+      setChannelLogo(catalog?.channelAvatar || video.meta.channelAvatar)
       return
     }
-    if (!channelId || String(channelId).startsWith('ch_')) return
+    if (!channelId || String(channelId).startsWith('ch_') || String(channelId).startsWith('uc_')) return
     let cancelled = false
     getChannelLogoMap([channelId]).then((map) => {
       if (!cancelled) setChannelLogo(map[channelId] || '')
@@ -73,7 +73,7 @@ const VideoReviewOptions = ({ fetchData }) => {
     return () => {
       cancelled = true
     }
-  }, [channelId, catalog])
+  }, [channelId, catalog, video?.meta?.channelAvatar])
 
   const videoEntry = {
     videoId,

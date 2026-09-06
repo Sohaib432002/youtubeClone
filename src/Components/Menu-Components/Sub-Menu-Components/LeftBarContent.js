@@ -4,6 +4,7 @@ import { useContext, useState } from 'react'
 import { ThemeContext } from '../../../Hooks/ThemeContext'
 import { getSubscriptionsPreview } from '../../../data/mockCatalog'
 import { useSubscriptions } from '../../../Hooks/SubscriptionsContext'
+import { useStudio } from '../../../Hooks/StudioContext'
 
 const primary = [
   { to: '/', label: 'Home', icon: 'fa-solid fa-house', end: true },
@@ -37,6 +38,8 @@ const linkClass = ({ isActive }) =>
 const LeftBarContent = () => {
   const { isSignedIn, openSignIn, user } = useAuth()
   const { subscriptions } = useSubscriptions()
+  const { getMyChannel } = useStudio()
+  const myChannel = getMyChannel()
   const { setActiveCategory, setisShowLeftbar, windowResize } = useContext(ThemeContext)
   const navigate = useNavigate()
   const [showAllSubs, setShowAllSubs] = useState(false)
@@ -89,12 +92,20 @@ const LeftBarContent = () => {
           You
           <i className="fa-solid fa-chevron-right text-[10px] text-[#aaa]"></i>
         </button>
-        {visibleYou.map((item) => (
-          <NavLink key={item.label} to={item.to} className={linkClass} onClick={closeOnMobile}>
-            <i className={`${item.icon} w-6 text-center text-[18px]`}></i>
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
+        {visibleYou.map((item) => {
+          const to =
+            item.label === 'Your channel'
+              ? myChannel
+                ? `/channel/${myChannel.id}`
+                : '/studio/channel'
+              : item.to
+          return (
+            <NavLink key={item.label} to={to} className={linkClass} onClick={closeOnMobile}>
+              <i className={`${item.icon} w-6 text-center text-[18px]`}></i>
+              <span>{item.label}</span>
+            </NavLink>
+          )
+        })}
         <button
           type="button"
           onClick={() => setShowMoreYou((v) => !v)}

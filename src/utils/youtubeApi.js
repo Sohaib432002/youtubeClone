@@ -326,7 +326,7 @@ export async function searchShorts(
 export async function getHomeVideos(
   category = 'All',
   maxResults = 24,
-  { pageToken = '' } = {}
+  { pageToken = '', regionCode = 'US' } = {}
 ) {
   const cat = category || 'All'
   const mapPopular = (payload) => {
@@ -339,9 +339,33 @@ export async function getHomeVideos(
   }
 
   if (cat === 'All' || cat === 'Trending') {
-    const popular = await getMostPopular(maxResults, { pageToken })
-    const mapped = mapPopular(popular)
-    if (mapped) return mapped
+    if (pageToken) {
+      const popular = await getMostPopular(maxResults, { pageToken, regionCode })
+      const mapped = mapPopular(popular)
+      if (mapped) return mapped
+    } else {
+      const [popular, recent] = await Promise.all([
+        getMostPopular(maxResults, { regionCode }),
+        searchVideos('trending this week', Math.max(8, Math.ceil(maxResults / 3)), {
+          order: 'date',
+        }),
+      ])
+      let mapped = mapPopular(popular)
+      if (!mapped && regionCode && regionCode !== 'US') {
+        mapped = mapPopular(await getMostPopular(maxResults, { regionCode: 'US' }))
+      }
+      const items = dedupeByVideoId([
+        ...(mapped?.items || []),
+        ...(recent?.items || []),
+      ])
+      if (items.length) {
+        return {
+          kind: 'youtube#searchListResponse',
+          items,
+          nextPageToken: mapped?.nextPageToken || undefined,
+        }
+      }
+    }
   } else if (cat === 'Live') {
     const live = await searchVideos('live', maxResults, {
       pageToken,
@@ -359,6 +383,7 @@ export async function getHomeVideos(
     const popular = await getMostPopular(maxResults, {
       pageToken,
       videoCategoryId: YT_CATEGORY_IDS[cat],
+      regionCode,
     })
     const mapped = mapPopular(popular)
     if (mapped) return mapped
@@ -392,6 +417,20 @@ export async function getChannelVideos(
       .filter((v) => v.channelId === channelId)
       .map(toSearchItem)
     return { ...emptySearch(), items: dedupeByVideoId(items) }
+  }
+
+  if (String(channelId).startsWith('uc_')) {
+    const { studioVideoToSearchItem } = await import('../Hooks/StudioContext')
+    try {
+      const raw = JSON.parse(localStorage.getItem('yt_clone_studio') || '{}')
+      const items = (Array.isArray(raw.videos) ? raw.videos : [])
+        .filter((v) => v.channelId === channelId)
+        .map(studioVideoToSearchItem)
+        .filter(Boolean)
+      return { ...emptySearch(), items: dedupeByVideoId(items) }
+    } catch {
+      return emptySearch()
+    }
   }
 
   const channelPayload = await fetchWithYoutubeKeys(
@@ -455,15 +494,18 @@ function relatedKeywordQuery(title = '') {
 
 /**
  * Related videos for the watch page: search by the current video's title,
- * never a generic home dump. Excludes the current video id.
+ * never a generic home dump. Supports infinite paging via pageToken + stage.
  */
 export async function getRelatedVideos(
   { videoId = '', title = '', channelId = '', description = '' } = {},
-  maxResults = 24
+  maxResults = 24,
+  { pageToken = '', excludeIds = [], stage = 0 } = {}
 ) {
   const { isShortLikeItem } = await import('./feed')
-  const exclude = new Set([videoId].filter(Boolean))
+  const exclude = new Set([videoId, ...excludeIds].filter(Boolean))
   const topic = String(title || '').trim()
+  const keys = relatedKeywordQuery(`${topic} ${description || ''}`)
+  const shortTopic = topic.split(/\s+/).slice(0, 4).join(' ')
 
   const take = (list) =>
     dedupeByVideoId(list)
@@ -475,30 +517,57 @@ export async function getRelatedVideos(
       })
       .slice(0, maxResults)
 
-  if (topic) {
-    const primary = await searchVideos(topic, maxResults, { order: 'relevance' })
-    let items = take(primary.items || [])
-    if (items.length >= 8) {
-      return { kind: 'youtube#searchListResponse', items, nextPageToken: primary.nextPageToken }
-    }
+  const stages = []
+  if (topic) stages.push({ type: 'search', q: topic, order: 'relevance' })
+  if (keys && keys !== topic.toLowerCase()) {
+    stages.push({ type: 'search', q: keys, order: 'relevance' })
+  }
+  if (topic) stages.push({ type: 'search', q: topic, order: 'date' })
+  if (shortTopic && shortTopic !== topic) {
+    stages.push({ type: 'search', q: shortTopic, order: 'viewCount' })
+  }
+  if (channelId) stages.push({ type: 'channel', channelId })
+  if (topic) stages.push({ type: 'search', q: `${shortTopic || topic} video`, order: 'relevance' })
 
-    const keys = relatedKeywordQuery(`${topic} ${description || ''}`)
-    if (keys && keys !== topic.toLowerCase()) {
-      const secondary = await searchVideos(keys, maxResults, { order: 'relevance' })
-      items = take([...items, ...(secondary.items || [])])
+  if (!stages.length) {
+    return { ...emptySearch(), stage: 0, hasMore: false }
+  }
+
+  const fetchStage = async (s, token = '') => {
+    if (s.type === 'channel') {
+      return getChannelVideos(s.channelId, maxResults, { pageToken: token })
     }
-    if (items.length) {
-      return { kind: 'youtube#searchListResponse', items }
+    return searchVideos(s.q, maxResults, { order: s.order, pageToken: token })
+  }
+
+  const start = Math.min(Math.max(0, stage), stages.length - 1)
+  let items = []
+  let nextToken = ''
+  let used = start
+
+  const first = await fetchStage(stages[start], pageToken)
+  items = take(first.items || [])
+  nextToken = first.nextPageToken || ''
+
+  if (!pageToken && items.length < 8) {
+    for (let i = start + 1; i < stages.length && items.length < maxResults; i++) {
+      const extra = await fetchStage(stages[i])
+      items = take([...items, ...(extra.items || [])])
+      used = i
+      nextToken = extra.nextPageToken || ''
     }
   }
 
-  if (channelId) {
-    const fromCh = await getChannelVideos(channelId, maxResults)
-    const items = take(fromCh.items || [])
-    if (items.length) return { kind: 'youtube#searchListResponse', items }
-  }
+  const nextStage = nextToken ? used : used + 1
+  const hasMore = Boolean(nextToken) || nextStage < stages.length
 
-  return emptySearch()
+  return {
+    kind: 'youtube#searchListResponse',
+    items,
+    nextPageToken: nextToken || undefined,
+    stage: nextStage,
+    hasMore,
+  }
 }
 
 /** Build channelId → logo URL map (batched) */
@@ -584,13 +653,14 @@ export async function getChannelsByIds(ids) {
 
 export async function getMostPopular(
   maxResults = 50,
-  { pageToken = '', videoCategoryId = '' } = {}
+  { pageToken = '', videoCategoryId = '', regionCode = 'US' } = {}
 ) {
   const tokenPart = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''
   const catPart = videoCategoryId ? `&videoCategoryId=${encodeURIComponent(videoCategoryId)}` : ''
+  const region = encodeURIComponent(regionCode || 'US')
   const yt = await fetchWithYoutubeKeys(
     (key) =>
-      `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&chart=mostPopular&regionCode=US&maxResults=${clampMax(
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&chart=mostPopular&regionCode=${region}&maxResults=${clampMax(
         maxResults
       )}${tokenPart}${catPart}&key=${key}`
   )

@@ -1,8 +1,11 @@
+import { Link } from 'react-router-dom'
+import { useAuth } from '../../Hooks/AuthContext'
+import { useStudio } from '../../Hooks/StudioContext'
 import { useSubscriptions } from '../../Hooks/SubscriptionsContext'
 
 /**
  * Channel-specific subscribe control.
- * Props: channelId, title, handle?, avatar?, subscriberCount? (base for new channels)
+ * Hidden when the viewer is not signed in.
  */
 const SubscribeButton = ({
   channelId,
@@ -13,8 +16,13 @@ const SubscribeButton = ({
   className = '',
   size = 'md',
 }) => {
+  const { isSignedIn } = useAuth()
+  const { getMyChannel } = useStudio()
   const { isSubscribed, toggleSubscribe } = useSubscriptions()
   const subscribed = isSubscribed(channelId)
+  const mine = getMyChannel()
+
+  if (!isSignedIn) return null
 
   const sizeClass =
     size === 'sm'
@@ -22,6 +30,17 @@ const SubscribeButton = ({
       : size === 'lg'
         ? 'text-sm px-5 py-2.5'
         : 'text-sm px-4 py-2'
+
+  if (mine && mine.id === channelId) {
+    return (
+      <Link
+        to="/studio/channel"
+        className={`font-semibold rounded-full bg-[#272727] text-[#f1f1f1] hover:bg-[#3f3f3f] ${sizeClass} ${className}`}
+      >
+        Customize channel
+      </Link>
+    )
+  }
 
   return (
     <button

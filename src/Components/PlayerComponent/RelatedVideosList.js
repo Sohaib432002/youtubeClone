@@ -1,12 +1,21 @@
-import { useContext, useMemo } from 'react'
+import { useContext, useEffect, useMemo, useRef } from 'react'
 import { ThemeContext } from '../../Hooks/ThemeContext'
 import RelatedVideosShel from './subComponents/RelatedVideosShel'
 import RelatedVidosCard from './subComponents/RelatedVidosCard'
 import { isShortSearchItem } from '../../data/mockCatalog'
 
-const RelatedVideos = ({ randomVideosData, setupdate, loading = false, error = '' }) => {
+const RelatedVideos = ({
+  randomVideosData,
+  setupdate,
+  loading = false,
+  loadingMore = false,
+  error = '',
+  hasMore = false,
+  onLoadMore,
+}) => {
   const { windowResize } = useContext(ThemeContext)
   const isSidebarCol = windowResize >= 1170
+  const sentinelRef = useRef(null)
 
   const videos = useMemo(() => {
     const list = randomVideosData?.items || []
@@ -20,6 +29,19 @@ const RelatedVideos = ({ randomVideosData, setupdate, loading = false, error = '
       return true
     })
   }, [randomVideosData])
+
+  useEffect(() => {
+    const node = sentinelRef.current
+    if (!node || !hasMore || !onLoadMore) return undefined
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) onLoadMore()
+      },
+      { rootMargin: '400px' }
+    )
+    obs.observe(node)
+    return () => obs.disconnect()
+  }, [hasMore, onLoadMore, videos.length])
 
   if (loading && !videos.length) {
     return <RelatedVideosShel />
@@ -59,6 +81,20 @@ const RelatedVideos = ({ randomVideosData, setupdate, loading = false, error = '
               compact={isSidebarCol}
             />
           ))}
+          <div ref={sentinelRef} className="h-8" />
+          {loadingMore ? (
+            <p className="text-center text-[#aaa] text-xs py-3">Loading more…</p>
+          ) : hasMore ? (
+            <button
+              type="button"
+              onClick={onLoadMore}
+              className="my-2 py-2 text-sm text-[#3ea6ff] hover:underline"
+            >
+              Show more
+            </button>
+          ) : (
+            <p className="text-center text-[#555] text-xs py-3">You&apos;re all caught up</p>
+          )}
         </div>
       )}
     </div>

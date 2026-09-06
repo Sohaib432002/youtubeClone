@@ -2,6 +2,8 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'r
 import { Link, useNavigate } from 'react-router-dom'
 import { ThemeContext } from '../../Hooks/ThemeContext'
 import { usePrefs } from '../../Hooks/PrefsContext'
+import { useStudio, studioVideoToSearchItem } from '../../Hooks/StudioContext'
+import { useFeedHide } from '../../Hooks/useFeedHide'
 import { getVideosByCategory } from '../../data/mockCatalog'
 import {
   getHomeVideos,
@@ -19,6 +21,14 @@ import ShowMoreButton from '../ui/ShowMoreButton'
 /** Long videos shown above Shorts (~2 desktop rows). */
 const PRE_SHORTS_COUNT = 6
 
+const REGION_CODES = {
+  Pakistan: 'PK',
+  'United States': 'US',
+  'United Kingdom': 'GB',
+  India: 'IN',
+  Canada: 'CA',
+}
+
 const Home = () => {
   const {
     windowResize,
@@ -30,7 +40,10 @@ const Home = () => {
     setWatchMode,
   } = useContext(ThemeContext)
   const { prefs } = usePrefs()
+  const { myVideos } = useStudio()
+  const { isHiddenItem } = useFeedHide()
   const navigate = useNavigate()
+  const regionCode = REGION_CODES[prefs.location] || 'US'
 
   const filterRestricted = useCallback(
     (list) => {
@@ -82,7 +95,7 @@ const Home = () => {
       let list = []
 
       try {
-        const live = await getHomeVideos(activeCategory, 24)
+        const live = await getHomeVideos(activeCategory, 24, { regionCode })
         if (cancelled) return
         const mapped = filterRestricted(
           dedupeByVideoId(
@@ -115,9 +128,14 @@ const Home = () => {
       }
 
       if (!cancelled) {
-        setItems(list)
+        const uploads =
+          activeCategory === 'All' || activeCategory === 'Trending'
+            ? myVideos.map(studioVideoToSearchItem).filter(Boolean)
+            : []
+        const merged = dedupeByVideoId([...uploads, ...list]).filter((v) => !isHiddenItem(v))
+        setItems(merged)
         setLoading(false)
-        const excludeIds = list.map((v) => videoIdOf(v)).filter(Boolean)
+        const excludeIds = merged.map((v) => videoIdOf(v)).filter(Boolean)
         try {
           const topic = activeCategory === 'All' ? '' : activeCategory
           const related = await searchShorts(topic, 24, { excludeIds })
@@ -129,7 +147,7 @@ const Home = () => {
           if (!cancelled) setShorts([])
         }
         const localLogos = {}
-        list.forEach((v) => {
+        merged.forEach((v) => {
           if (v.meta?.channelAvatar) localLogos[v.snippet.channelId] = v.meta.channelAvatar
         })
         setLogoMap(localLogos)
@@ -140,7 +158,7 @@ const Home = () => {
         const logos = await getChannelLogoMap(
           list
             .map((v) => v.snippet?.channelId)
-            .filter((cid) => cid && !String(cid).startsWith('ch_'))
+            .filter((cid) => cid && !String(cid).startsWith('ch_') && !String(cid).startsWith('uc_'))
         )
         const localLogos = {}
         list.forEach((v) => {
@@ -155,7 +173,7 @@ const Home = () => {
     return () => {
       cancelled = true
     }
-  }, [activeCategory, categoryQuery, filterRestricted])
+  }, [activeCategory, categoryQuery, filterRestricted, regionCode, myVideos, isHiddenItem])
 
   const loadMore = async () => {
     if (loadingRef.current || !hasMore) return
@@ -164,7 +182,10 @@ const Home = () => {
     const cat = categoryRef.current
     try {
       if (sourceRef.current === 'live' && pageTokenRef.current) {
-        const more = await getHomeVideos(cat, 24, { pageToken: pageTokenRef.current })
+        const more = await getHomeVideos(cat, 24, {
+          pageToken: pageTokenRef.current,
+          regionCode,
+        })
         const mapped = filterRestricted(
           dedupeByVideoId(
             (more.items || []).map((it) => normalizeFeedItem(it, cat)).filter(Boolean)
@@ -172,7 +193,10 @@ const Home = () => {
         )
         setItems((prev) => {
           const seen = new Set(prev.map((v) => videoIdOf(v)))
-          return [...prev, ...mapped.filter((v) => !seen.has(videoIdOf(v)))]
+          return [
+            ...prev,
+            ...mapped.filter((v) => !seen.has(videoIdOf(v)) && !isHiddenItem(v)),
+          ]
         })
         pageTokenRef.current = more.nextPageToken || ''
         setHasMore(Boolean(more.nextPageToken))
@@ -219,8 +243,12 @@ const Home = () => {
     return contentOffsetPx >= 240 ? 'lg:ml-[240px]' : 'lg:ml-[72px]'
   }, [isDesktopSidebar, windowResize, contentOffsetPx])
 
-  const topVideos = useMemo(() => items.slice(0, PRE_SHORTS_COUNT), [items])
-  const restVideos = useMemo(() => items.slice(PRE_SHORTS_COUNT), [items])
+  const visibleItems = useMemo(
+    () => items.filter((v) => !isHiddenItem(v)),
+    [items, isHiddenItem]
+  )
+  const topVideos = useMemo(() => visibleItems.slice(0, PRE_SHORTS_COUNT), [visibleItems])
+  const restVideos = useMemo(() => visibleItems.slice(PRE_SHORTS_COUNT), [visibleItems])
 
   const scrollShorts = (dir) => {
     shortsRailRef.current?.scrollBy({ left: dir * 340, behavior: 'smooth' })
@@ -342,11 +370,11 @@ const Home = () => {
       ) : (
         <>
           <h2 className="text-white text-lg font-semibold mb-5">
-            {activeCategory === 'All' ? 'Recommended' : activeCategory}
+            {activeCategory === 'All' ? 'Trending' : activeCategory}
           </h2>
 
           {topVideos.length ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8 overflow-visible">
               {topVideos.map((item, idx) => renderVideoCard(item, idx))}
             </div>
           ) : (
@@ -360,7 +388,7 @@ const Home = () => {
           {shorts.length ? ShortsSection : null}
 
           {restVideos.length ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8 mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8 mt-2 overflow-visible">
               {restVideos.map((item, idx) =>
                 renderVideoCard(item, idx + PRE_SHORTS_COUNT)
               )}
