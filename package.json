@@ -2,6 +2,7 @@
   "name": "youtubeclone",
   "version": "0.1.0",
   "private": true,
+  "description": "YouTube-style React app for videos, Shorts, channels, downloads, and subscriptions.",
   "dependencies": {
     "@babel/preset-env": "^7.28.3",
     "@babel/preset-react": "^7.27.1",

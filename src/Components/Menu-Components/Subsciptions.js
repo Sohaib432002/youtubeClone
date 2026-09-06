@@ -82,7 +82,7 @@ const Subscriptions = () => {
                     title={ch.title}
                     handle={ch.handle}
                     avatar={ch.avatar}
-                    subscriberCount={getSubscriberCount(ch.channelId)}
+                    subscriberCount={0}
                     size="sm"
                   />
                 </div>

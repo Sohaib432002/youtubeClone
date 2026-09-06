@@ -1,6 +1,7 @@
 {
   "short_name": "YouTubeClone",
   "name": "YouTubeClone",
+  "description": "Watch videos and Shorts, search channels, subscribe, and save downloads.",
   "icons": [
     {
       "src": "favicon.svg",

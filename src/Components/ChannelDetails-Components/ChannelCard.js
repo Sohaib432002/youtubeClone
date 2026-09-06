@@ -35,7 +35,7 @@ const ChannelCard = ({
           title={title}
           handle={handle}
           avatar={logo}
-          subscriberCount={count}
+          subscriberCount={subscriberCount}
           size="sm"
         />
       </div>

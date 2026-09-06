@@ -1,12 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { downloadVideoFile, formatViews, timeAgo, clockFromSeconds, parseIsoDuration } from '../../utils/format'
+import { formatViews, timeAgo, clockFromSeconds, parseIsoDuration } from '../../utils/format'
+import { downloadAndSave } from '../../utils/downloads'
 import { useWatchLater } from '../../Hooks/WatchLaterContext'
 import { useFeedHide } from '../../Hooks/useFeedHide'
 import SavePlaylistModal from '../ui/SavePlaylistModal'
-
-const SAMPLE_MP4 =
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
 
 const Card = ({ item, channelLogo, onHidden }) => {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -88,10 +86,11 @@ const Card = ({ item, channelLogo, onHidden }) => {
       label: 'Download',
       run: async () => {
         try {
-          const url = meta?.localVideoUrl || SAMPLE_MP4
-          const name = `${(item.snippet.title || 'video').slice(0, 40).replace(/[^\w\s-]/g, '')}.mp4`
-          await downloadVideoFile(url, name)
-          flash('Download started')
+          await downloadAndSave({
+            ...videoEntry,
+            localVideoUrl: meta?.localVideoUrl,
+          })
+          flash('Saved to Downloads')
         } catch {
           flash('Download failed')
         }

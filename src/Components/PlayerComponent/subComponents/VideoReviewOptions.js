@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getChannelLogoMap } from '../../../utils/youtubeApi'
+import { getChannelsByIds } from '../../../utils/youtubeApi'
 import { getCatalogVideo } from '../../../data/mockCatalog'
-import { downloadVideoFile, formatViews } from '../../../utils/format'
+import { formatViews } from '../../../utils/format'
+import { downloadAndSave } from '../../../utils/downloads'
 import { useLikes } from '../../../Hooks/LikesContext'
 import { useSubscriptions } from '../../../Hooks/SubscriptionsContext'
 import { useWatchLater } from '../../../Hooks/WatchLaterContext'
@@ -13,6 +14,7 @@ const VideoReviewOptions = ({ fetchData }) => {
   const [disLike, setdisLike] = useState(false)
   const [revOptions, setrevOptions] = useState(false)
   const [channelLogo, setChannelLogo] = useState('')
+  const [channelSubs, setChannelSubs] = useState(null)
   const [dlProgress, setDlProgress] = useState(null)
   const [dlError, setDlError] = useState('')
   const [actionError, setActionError] = useState('')
@@ -40,10 +42,12 @@ const VideoReviewOptions = ({ fetchData }) => {
   }, [video, catalog])
 
   const originalSubs = useMemo(() => {
+    if (channelSubs != null && channelSubs !== '') return channelSubs
+    if (catalog?.subscribers != null) return catalog.subscribers
     const api = video?.statistics?.subscriberCount
     if (api != null && api !== '') return api
-    return catalog?.subscribers ?? 0
-  }, [video, catalog])
+    return 0
+  }, [channelSubs, catalog, video])
 
   useEffect(() => {
     setdisLike(false)
@@ -53,22 +57,46 @@ const VideoReviewOptions = ({ fetchData }) => {
   }, [videoId])
 
   useEffect(() => {
+    setChannelSubs(null)
+    setChannelLogo('')
+  }, [channelId])
+
+  useEffect(() => {
     if (videoId != null) syncLikeBase(videoId, originalLikes)
   }, [videoId, originalLikes, syncLikeBase])
 
   useEffect(() => {
-    if (channelId) syncSubscriberBase(channelId, originalSubs)
-  }, [channelId, originalSubs, syncSubscriberBase])
+    if (!channelId) return
+    if (channelSubs == null && catalog?.subscribers == null) return
+    if (originalSubs == null || originalSubs === '') return
+    syncSubscriberBase(channelId, originalSubs)
+  }, [channelId, originalSubs, channelSubs, catalog, syncSubscriberBase])
 
   useEffect(() => {
     if (catalog?.channelAvatar || video?.meta?.channelAvatar) {
       setChannelLogo(catalog?.channelAvatar || video.meta.channelAvatar)
-      return
     }
-    if (!channelId || String(channelId).startsWith('ch_') || String(channelId).startsWith('uc_')) return
+    const localChannel =
+      !channelId ||
+      String(channelId).startsWith('ch_') ||
+      String(channelId).startsWith('uc_')
+    if (localChannel) {
+      if (catalog?.subscribers != null) setChannelSubs(catalog.subscribers)
+      return undefined
+    }
     let cancelled = false
-    getChannelLogoMap([channelId]).then((map) => {
-      if (!cancelled) setChannelLogo(map[channelId] || '')
+    getChannelsByIds([channelId]).then((data) => {
+      const ch = data?.items?.[0]
+      if (cancelled || !ch) return
+      const logo =
+        ch.snippet?.thumbnails?.default?.url ||
+        ch.snippet?.thumbnails?.medium?.url ||
+        ch.snippet?.thumbnails?.high?.url ||
+        ''
+      if (logo) setChannelLogo(logo)
+      if (ch.statistics?.subscriberCount != null) {
+        setChannelSubs(ch.statistics.subscriberCount)
+      }
     })
     return () => {
       cancelled = true
@@ -108,27 +136,30 @@ const VideoReviewOptions = ({ fetchData }) => {
 
   const onDownload = async () => {
     setDlError('')
-    const url = catalog?.downloadUrl
-    if (!url) {
+    setActionOk('')
+    if (!videoId) {
       setDlError('Download is not available for this video.')
       return
     }
     try {
       setDlProgress(0)
-      const name = `${(catalog?.title || 'video').slice(0, 40).replace(/[^\w\s-]/g, '')}.mp4`
-      await downloadVideoFile(url, name, setDlProgress)
-      const prev = JSON.parse(localStorage.getItem('yt_clone_downloads') || '[]')
-      const entry = {
-        videoId: catalog.videoId,
-        title: catalog.title,
-        thumbnail: catalog.thumbnails.medium.url,
-        downloadedAt: new Date().toISOString(),
-      }
-      localStorage.setItem(
-        'yt_clone_downloads',
-        JSON.stringify([entry, ...prev.filter((x) => x.videoId !== entry.videoId)].slice(0, 50))
+      await downloadAndSave(
+        {
+          videoId,
+          title: video?.snippet?.title || catalog?.title || 'video',
+          thumbnail:
+            video?.snippet?.thumbnails?.medium?.url ||
+            video?.snippet?.thumbnails?.high?.url ||
+            `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
+          channelTitle: video?.snippet?.channelTitle,
+          channelId,
+          localVideoUrl: video?.meta?.localVideoUrl,
+          downloadUrl: catalog?.downloadUrl,
+        },
+        setDlProgress
       )
-      setTimeout(() => setDlProgress(null), 800)
+      setActionOk('Saved to Downloads')
+      setTimeout(() => setDlProgress(null), 600)
     } catch (err) {
       setDlProgress(null)
       setDlError(err.message || 'Download failed. Try again.')

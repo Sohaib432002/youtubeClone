@@ -2,23 +2,37 @@ import { useContext, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ThemeContext } from '../../Hooks/ThemeContext'
 import { timeAgo } from '../../utils/format'
+import {
+  clearDownloads,
+  downloadAndSave,
+  readDownloads,
+} from '../../utils/downloads'
 
 const Downloads = () => {
   const { setisShowScrollbar, isShowLeftbar, windowResize } = useContext(ThemeContext)
   const [items, setItems] = useState([])
+  const [busyId, setBusyId] = useState('')
+
+  const refresh = () => setItems(readDownloads())
 
   useEffect(() => {
     setisShowScrollbar(false)
-    try {
-      setItems(JSON.parse(localStorage.getItem('yt_clone_downloads') || '[]'))
-    } catch {
-      setItems([])
-    }
+    refresh()
   }, [setisShowScrollbar])
 
   const clearAll = () => {
-    localStorage.removeItem('yt_clone_downloads')
+    clearDownloads()
     setItems([])
+  }
+
+  const onRedownload = async (item) => {
+    setBusyId(item.videoId)
+    try {
+      await downloadAndSave(item)
+      refresh()
+    } finally {
+      setBusyId('')
+    }
   }
 
   const leftPad =
@@ -47,21 +61,36 @@ const Downloads = () => {
       ) : (
         <div className="flex flex-col gap-3">
           {items.map((item) => (
-            <Link
+            <div
               key={`${item.videoId}-${item.downloadedAt}`}
-              to={`/Video/${item.videoId}`}
               className="flex gap-3 hover:bg-[#1a1a1a] rounded-xl p-2"
             >
-              <div className="w-40 sm:w-56 aspect-video rounded-lg overflow-hidden bg-[#272727] flex-shrink-0">
+              <Link
+                to={`/Video/${item.videoId}`}
+                className="w-40 sm:w-56 aspect-video rounded-lg overflow-hidden bg-[#272727] flex-shrink-0"
+              >
                 <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
-              </div>
-              <div className="min-w-0 py-1">
-                <p className="line-clamp-2 text-sm sm:text-base">{item.title}</p>
-                <p className="text-xs text-[#aaa] mt-2">
+              </Link>
+              <div className="min-w-0 py-1 flex-1">
+                <Link to={`/Video/${item.videoId}`} className="line-clamp-2 text-sm sm:text-base hover:underline">
+                  {item.title}
+                </Link>
+                {item.channelTitle ? (
+                  <p className="text-xs text-[#aaa] mt-1">{item.channelTitle}</p>
+                ) : null}
+                <p className="text-xs text-[#aaa] mt-1">
                   Downloaded {timeAgo(item.downloadedAt)}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => onRedownload(item)}
+                  disabled={busyId === item.videoId}
+                  className="mt-2 text-sm text-[#3ea6ff] hover:underline disabled:opacity-60"
+                >
+                  {busyId === item.videoId ? 'Downloading…' : 'Download file'}
+                </button>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

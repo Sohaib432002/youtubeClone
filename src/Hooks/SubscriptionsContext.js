@@ -82,8 +82,10 @@ export const SubscriptionsProvider = ({ children }) => {
     (channelId, fallback = 0) => {
       if (!channelId) return parseSubscriberCount(fallback)
       const row = counts[channelId]
-      if (row) return Math.max(0, (row.base || 0) + (row.delta || 0))
-      return parseSubscriberCount(fallback)
+      const fallbackNum = parseSubscriberCount(fallback)
+      if (!row) return fallbackNum
+      const base = row.base > 0 ? row.base : fallbackNum
+      return Math.max(0, base + (row.delta || 0))
     },
     [counts]
   )

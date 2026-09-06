@@ -27,7 +27,7 @@ import OptionsSelection from './ChannelDetails-Components/OptionsSelection'
 const ChannelDetails = () => {
   const { channelId } = useParams()
   const { setisShowScrollbar } = useContext(ThemeContext)
-  const { getSubscriberCount, ensureChannelCount } = useSubscriptions()
+  const { ensureChannelCount } = useSubscriptions()
   const { getChannel, getVideosByChannel } = useStudio()
   const [channelData, setChannelData] = useState(null)
   const [channelVideos, setChannelVideos] = useState([])
@@ -116,7 +116,7 @@ const ChannelDetails = () => {
             },
           },
           statistics: {
-            subscriberCount: String(getSubscriberCount(local.id, baseSubs)),
+            subscriberCount: String(baseSubs),
             videoCount: String(vids.length),
             viewCount: String(viewCount),
           },
@@ -153,15 +153,7 @@ const ChannelDetails = () => {
         if (data?.items?.length) {
           const ch = data.items[0]
           ensureChannelCount(ch.id, ch.statistics?.subscriberCount)
-          setChannelData({
-            ...ch,
-            statistics: {
-              ...ch.statistics,
-              subscriberCount: String(
-                getSubscriberCount(ch.id, ch.statistics?.subscriberCount)
-              ),
-            },
-          })
+          setChannelData(ch)
           const videos = await getChannelVideos(id, 32)
           const filtered = dedupeByVideoId(
             (videos?.items || []).filter((v) => {
@@ -211,27 +203,9 @@ const ChannelDetails = () => {
     return () => {
       cancelled = true
     }
-    // getSubscriberCount changes with counts — re-run when channelId changes only;
-    // live count is refreshed below via derived display in ChannelIntro
+    // ChannelIntro derives the live display count (actual + local ±1).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelId, setisShowScrollbar, ensureChannelCount])
-
-  // Keep displayed subscriberCount in sync with subscription toggles
-  useEffect(() => {
-    if (!channelData?.id) return
-    setChannelData((prev) => {
-      if (!prev) return prev
-      const nextCount = getSubscriberCount(prev.id, prev.statistics?.subscriberCount)
-      if (String(prev.statistics?.subscriberCount) === String(nextCount)) return prev
-      return {
-        ...prev,
-        statistics: {
-          ...prev.statistics,
-          subscriberCount: String(nextCount),
-        },
-      }
-    })
-  }, [channelData?.id, getSubscriberCount])
 
   if (loading) {
     return (
