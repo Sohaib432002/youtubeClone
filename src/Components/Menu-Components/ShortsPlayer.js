@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useRef, useState, useContext } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { SHORTS } from '../../data/mockCatalog'
 import { formatViews } from '../../utils/format'
 import { useWatchHistory } from '../../Hooks/HistoryContext'
 import { useLikes } from '../../Hooks/LikesContext'
 import { ThemeContext } from '../../Hooks/ThemeContext'
 import SubscribeButton from '../ui/SubscribeButton'
+import { searchShorts, videoIdOf } from '../../utils/youtubeApi'
+import {
+  getShortsQueue,
+  setShortsQueue,
+  inspectVideoIsShort,
+  toPlayerShort,
+} from '../../utils/shorts'
 
 const ShortsPlayer = () => {
   const { id } = useParams()
@@ -16,38 +22,76 @@ const ShortsPlayer = () => {
   const containerRef = useRef(null)
   const [active, setActive] = useState(0)
   const [dislikes, setDislikes] = useState({})
+  const [ordered, setOrdered] = useState([])
+  const [blocked, setBlocked] = useState(false)
+  const queryRef = useRef('')
+  const orderedRef = useRef([])
 
   useEffect(() => {
     setWatchMode(true)
     return () => setWatchMode(false)
   }, [setWatchMode])
 
-  const uniqueShorts = useMemo(() => {
-    const seen = new Set()
-    return SHORTS.filter((s) => {
-      if (seen.has(s.videoId)) return false
-      seen.add(s.videoId)
-      return true
-    })
-  }, [])
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      const existingIdx = orderedRef.current.findIndex((s) => s.videoId === id)
+      if (existingIdx >= 0) {
+        setActive(existingIdx)
+        return
+      }
 
-  const startIndex = useMemo(() => {
-    const idx = uniqueShorts.findIndex((s) => s.videoId === id || s.id === id)
-    return idx >= 0 ? idx : 0
-  }, [id, uniqueShorts])
+      setBlocked(false)
+      const stored = getShortsQueue()
+      queryRef.current = stored?.query || ''
+      let queue = (stored?.items || []).filter((s) => s?.videoId)
 
-  const ordered = useMemo(() => {
-    if (!startIndex) return uniqueShorts
-    return [...uniqueShorts.slice(startIndex), ...uniqueShorts.slice(0, startIndex)]
-  }, [startIndex, uniqueShorts])
+      const current = await inspectVideoIsShort(id)
+      if (cancelled) return
+      if (!current.ok) {
+        setBlocked(true)
+        navigate(`/Video/${id}`, { replace: true })
+        return
+      }
+
+      const head = current.playerShort
+      const rest = queue.filter((s) => s.videoId !== head.videoId)
+      let next = [head, ...rest]
+
+      const needMore = next.length < 8
+      if (needMore) {
+        const topic = queryRef.current || head.title || ''
+        const extra = await searchShorts(topic, 16, {
+          excludeIds: next.map((s) => s.videoId),
+        })
+        const more = (extra.items || [])
+          .map(toPlayerShort)
+          .filter((s) => s && s.videoId !== head.videoId)
+        next = dedupeShorts([...next, ...more])
+      }
+
+      setShortsQueue(next, { query: queryRef.current, source: 'player' })
+      if (!cancelled) {
+        orderedRef.current = next
+        setOrdered(next)
+        setActive(0)
+        if (containerRef.current) containerRef.current.scrollTop = 0
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [id, navigate])
+
+  const uniqueOrdered = useMemo(() => {
+    const list = dedupeShorts(ordered)
+    orderedRef.current = list
+    return list
+  }, [ordered])
 
   useEffect(() => {
-    setActive(0)
-    if (containerRef.current) containerRef.current.scrollTop = 0
-  }, [id])
-
-  useEffect(() => {
-    const current = ordered[active]
+    const current = uniqueOrdered[active]
     if (!current) return
     addToHistory({
       videoId: current.videoId,
@@ -60,13 +104,13 @@ const ShortsPlayer = () => {
     if (current.videoId !== id) {
       navigate(`/shorts/${current.videoId}`, { replace: true })
     }
-  }, [active, ordered, addToHistory, id, navigate])
+  }, [active, uniqueOrdered, addToHistory, id, navigate])
 
   useEffect(() => {
-    ordered.forEach((s) => {
+    uniqueOrdered.forEach((s) => {
       if (s.videoId != null && s.likes != null) syncLikeBase(s.videoId, s.likes)
     })
-  }, [ordered, syncLikeBase])
+  }, [uniqueOrdered, syncLikeBase])
 
   useEffect(() => {
     const root = containerRef.current
@@ -85,7 +129,9 @@ const ShortsPlayer = () => {
     )
     sections.forEach((el) => obs.observe(el))
     return () => obs.disconnect()
-  }, [ordered])
+  }, [uniqueOrdered])
+
+  if (blocked) return null
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex">
@@ -102,11 +148,11 @@ const ShortsPlayer = () => {
         ref={containerRef}
         className="flex-1 h-screen overflow-y-auto snap-y snap-mandatory"
       >
-        {ordered.map((s, index) => {
+        {uniqueOrdered.map((s, index) => {
           const isActive = index === active
           return (
             <section
-              key={`${s.id}-${index}`}
+              key={`${s.videoId}-${index}`}
               data-short
               data-index={index}
               className="h-screen w-full snap-start flex items-center justify-center relative"
@@ -115,7 +161,7 @@ const ShortsPlayer = () => {
                 {isActive ? (
                   <iframe
                     title={s.title}
-                    src={`https://www.youtube.com/embed/${s.videoId}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1&playsinline=1`}
+                    src={`https://www.youtube.com/embed/${s.videoId}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${s.videoId}`}
                     className="absolute inset-0 w-full h-full"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
@@ -131,13 +177,13 @@ const ShortsPlayer = () => {
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/90 via-black/35 to-transparent">
                   <div className="pointer-events-auto flex items-center gap-2 mb-2">
                     <Link to={`/channel/${s.channelId}`}>
-                      <img src={s.channelAvatar} alt="" className="w-9 h-9 rounded-full" />
+                      <img src={s.channelAvatar || '/favicon.ico'} alt="" className="w-9 h-9 rounded-full" />
                     </Link>
                     <Link
                       to={`/channel/${s.channelId}`}
                       className="text-white text-sm font-medium hover:underline"
                     >
-                      {s.channelHandle}
+                      {s.channelHandle || s.channelTitle}
                     </Link>
                     <SubscribeButton
                       channelId={s.channelId}
@@ -150,7 +196,7 @@ const ShortsPlayer = () => {
                   </div>
                   <p className="text-white text-sm line-clamp-2 mb-1">{s.title}</p>
                   <p className="text-[#ddd] text-xs flex items-center gap-1">
-                    <i className="fa-solid fa-music"></i> {s.music}
+                    <i className="fa-solid fa-music"></i> {s.music || 'Original Audio'}
                   </p>
                 </div>
               </div>
@@ -171,7 +217,7 @@ const ShortsPlayer = () => {
                       publishedAt: s.publishedAt,
                       likeCount: s.likes,
                     })
-                    setDislikes((p) => ({ ...p, [s.id]: false }))
+                    setDislikes((p) => ({ ...p, [s.videoId]: false }))
                   }}
                   className="flex flex-col items-center"
                 >
@@ -189,8 +235,8 @@ const ShortsPlayer = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setDislikes((p) => ({ ...p, [s.id]: !p[s.id] }))
-                    if (!dislikes[s.id] && isLiked(s.videoId)) {
+                    setDislikes((p) => ({ ...p, [s.videoId]: !p[s.videoId] }))
+                    if (!dislikes[s.videoId] && isLiked(s.videoId)) {
                       toggleLike({
                         videoId: s.videoId,
                         title: s.title,
@@ -203,7 +249,7 @@ const ShortsPlayer = () => {
                   className="flex flex-col items-center"
                 >
                   <span className="w-12 h-12 rounded-full bg-white/15 flex items-center justify-center">
-                    <i className={`fa-solid fa-thumbs-down ${dislikes[s.id] ? 'text-[#3ea6ff]' : ''}`}></i>
+                    <i className={`fa-solid fa-thumbs-down ${dislikes[s.videoId] ? 'text-[#3ea6ff]' : ''}`}></i>
                   </span>
                   <span className="text-xs mt-1">Dislike</span>
                 </button>
@@ -211,7 +257,7 @@ const ShortsPlayer = () => {
                   <span className="w-12 h-12 rounded-full bg-white/15 flex items-center justify-center">
                     <i className="fa-regular fa-comment"></i>
                   </span>
-                  <span className="text-xs mt-1">{s.comments}</span>
+                  <span className="text-xs mt-1">{s.comments || 0}</span>
                 </div>
                 <div className="flex flex-col items-center">
                   <span className="w-12 h-12 rounded-full bg-white/15 flex items-center justify-center">
@@ -234,6 +280,18 @@ const ShortsPlayer = () => {
       </button>
     </div>
   )
+}
+
+function dedupeShorts(list = []) {
+  const seen = new Set()
+  const out = []
+  for (const s of list) {
+    const id = s?.videoId || videoIdOf(s)
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    out.push(s)
+  }
+  return out
 }
 
 export default ShortsPlayer

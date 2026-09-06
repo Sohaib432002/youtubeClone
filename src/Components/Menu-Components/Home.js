@@ -1,16 +1,18 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ThemeContext } from '../../Hooks/ThemeContext'
 import { usePrefs } from '../../Hooks/PrefsContext'
-import { getShortsPage, getVideosByCategory } from '../../data/mockCatalog'
+import { getVideosByCategory } from '../../data/mockCatalog'
 import {
   getHomeVideos,
+  searchShorts,
   getChannelLogoMap,
   videoIdOf,
   dedupeByVideoId,
 } from '../../utils/youtubeApi'
 import { formatViews } from '../../utils/format'
 import { landscapeThumbnail, normalizeFeedItem } from '../../utils/feed'
+import { setShortsQueue, toPlayerShort } from '../../utils/shorts'
 import Card from '../Home-components/Card'
 import ShowMoreButton from '../ui/ShowMoreButton'
 
@@ -28,6 +30,7 @@ const Home = () => {
     setWatchMode,
   } = useContext(ThemeContext)
   const { prefs } = usePrefs()
+  const navigate = useNavigate()
 
   const filterRestricted = useCallback(
     (list) => {
@@ -61,10 +64,6 @@ const Home = () => {
   }, [setisShowScrollbar, setWatchMode])
 
   useEffect(() => {
-    setShorts(getShortsPage(0, 24, activeCategory).items)
-  }, [activeCategory])
-
-  useEffect(() => {
     categoryRef.current = activeCategory
   }, [activeCategory])
 
@@ -73,6 +72,7 @@ const Home = () => {
     const load = async () => {
       setLoading(true)
       setItems([])
+      setShorts([])
       setPage(0)
       setHasMore(false)
       pageTokenRef.current = ''
@@ -116,6 +116,18 @@ const Home = () => {
 
       if (!cancelled) {
         setItems(list)
+        setLoading(false)
+        const excludeIds = list.map((v) => videoIdOf(v)).filter(Boolean)
+        try {
+          const topic = activeCategory === 'All' ? '' : activeCategory
+          const related = await searchShorts(topic, 24, { excludeIds })
+          const mapped = (related?.items || [])
+            .map(toPlayerShort)
+            .filter((s) => s && !excludeIds.includes(s.videoId))
+          if (!cancelled) setShorts(mapped)
+        } catch (_) {
+          if (!cancelled) setShorts([])
+        }
         const localLogos = {}
         list.forEach((v) => {
           if (v.meta?.channelAvatar) localLogos[v.snippet.channelId] = v.meta.channelAvatar
@@ -276,10 +288,17 @@ const Home = () => {
         className="flex gap-3 sm:gap-4 md:gap-5 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory"
       >
         {shorts.map((s) => (
-          <Link
-            key={s.id}
-            to={`/shorts/${s.videoId}`}
-            className="snap-start flex-shrink-0 w-[min(72vw,260px)] sm:w-[250px] md:w-[270px] lg:w-[290px] group"
+          <button
+            key={s.videoId || s.id}
+            type="button"
+            onClick={() => {
+              setShortsQueue(shorts, {
+                query: activeCategory === 'All' ? '' : activeCategory,
+                source: 'home',
+              })
+              navigate(`/shorts/${s.videoId}`)
+            }}
+            className="snap-start flex-shrink-0 w-[min(72vw,260px)] sm:w-[250px] md:w-[270px] lg:w-[290px] group text-left"
           >
             <div className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-[#272727] shadow-md ring-1 ring-white/10">
               <img
@@ -295,7 +314,7 @@ const Home = () => {
                 <p className="text-[#ccc] text-xs mt-1.5">{formatViews(s.views)} views</p>
               </div>
             </div>
-          </Link>
+          </button>
         ))}
       </div>
     </section>

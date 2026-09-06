@@ -1,5 +1,6 @@
 import { extractKeywords } from '../data/mockCatalog'
 import { inferCategoryFromText, scoreCategoryMatch } from './categoryMatch'
+import { parseIsoDuration } from './format'
 
 /** Always use YouTube 16:9 mq/hq thumbnails (not vertical Shorts crops). */
 export function landscapeThumbnail(videoId, fallback = '') {
@@ -12,12 +13,26 @@ export function isShortLikeItem(item) {
   if (item.meta?.isShort) return true
   const title = (item?.snippet?.title || item?.meta?.title || '').toLowerCase()
   const desc = (item?.snippet?.description || '').toLowerCase()
-  if (title.includes('#shorts') || title.includes('#short') || title.includes(' shorts')) {
+  const text = `${title} ${desc}`
+  if (
+    text.includes('#shorts') ||
+    text.includes('#short') ||
+    text.includes('youtubeshorts') ||
+    text.includes('trendingshorts') ||
+    text.includes('#shortvideo') ||
+    text.includes('shortvideo') ||
+    text.includes('ytshorts') ||
+    /\bshorts\b/.test(text)
+  ) {
     return true
   }
-  if (desc.includes('#shorts')) return true
   const sec = item.meta?.durationSec
   if (typeof sec === 'number' && sec > 0 && sec <= 60) return true
+  const iso = item.contentDetails?.duration
+  if (iso) {
+    const parsed = parseIsoDuration(iso)
+    if (parsed > 0 && parsed <= 60) return true
+  }
   return false
 }
 

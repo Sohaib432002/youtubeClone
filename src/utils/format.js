@@ -1,3 +1,19 @@
+/** Parse YouTube ISO-8601 duration (PT1M3S) to seconds. */
+export function parseIsoDuration(iso = '') {
+  const m = String(iso).match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/i)
+  if (!m) return 0
+  return Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0)
+}
+
+export function clockFromSeconds(sec = 0) {
+  const n = Math.max(0, Math.round(Number(sec) || 0))
+  const h = Math.floor(n / 3600)
+  const m = Math.floor((n % 3600) / 60)
+  const s = n % 60
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 export function formatViews(num) {
   const n = Number(num) || 0
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`

@@ -678,6 +678,36 @@ export function isShortSearchItem(item) {
   return false
 }
 
+export function searchCatalogShorts(query = '') {
+  const q = String(query || '').trim().toLowerCase()
+  const tokens = q.split(/\s+/).filter((t) => t.length > 1)
+  let list = [...SHORTS]
+  if (q) {
+    const scored = SHORTS.map((s) => {
+      const hay = `${s.title} ${s.description} ${s.category} ${s.channelTitle}`.toLowerCase()
+      let score = 0
+      if (hay.includes(q)) score += 40
+      tokens.forEach((t) => {
+        if (s.title.toLowerCase().includes(t)) score += 12
+        else if (hay.includes(t)) score += 4
+      })
+      return { s, score }
+    })
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+    list = scored.map(({ s }) => s)
+    if (list.length < 6) list = SHORTS.filter((s) => s.isShort)
+  }
+  const seen = new Set()
+  const unique = []
+  for (const s of list) {
+    if (seen.has(s.videoId)) continue
+    seen.add(s.videoId)
+    unique.push(s)
+  }
+  return unique.slice(0, 24).map(toSearchItem)
+}
+
 export function getShortsPage(start = 0, count = 12, category = 'All') {
   let pool = SHORTS
   if (category && category !== 'All' && category !== 'Shorts') {

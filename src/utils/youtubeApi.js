@@ -290,8 +290,33 @@ export async function searchVideos(
   return emptySearch()
 }
 
-export async function searchShorts(maxResults = 20, pageToken = '') {
-  return searchVideos('#shorts', maxResults, { pageToken, videoDuration: 'short' })
+export async function searchShorts(
+  query = '',
+  maxResults = 20,
+  { pageToken = '', excludeIds = [] } = {}
+) {
+  const q = query && String(query).trim() ? String(query).trim() : ''
+  const searchQ = q ? `${q} #shorts` : '#shorts'
+  const yt = await searchVideos(searchQ, maxResults, {
+    pageToken,
+    videoDuration: 'short',
+    order: 'relevance',
+    type: 'video',
+  })
+  const { keepOnlyShorts } = await import('./shorts')
+  let items = await keepOnlyShorts(yt?.items || [], excludeIds, { lenient: true })
+
+  if (!items.length && !pageToken) {
+    const { searchCatalogShorts } = await import('../data/mockCatalog')
+    const local = searchCatalogShorts(q)
+    items = await keepOnlyShorts(local, excludeIds)
+  }
+
+  return {
+    kind: 'youtube#searchListResponse',
+    items: dedupeByVideoId(items),
+    nextPageToken: yt?.nextPageToken || undefined,
+  }
 }
 
 /**
@@ -656,14 +681,19 @@ export async function getChannelShorts(channelId, maxResults = 24) {
     return { ...emptySearch(), items: mockChannelShorts(channelId) }
   }
 
+  const { keepOnlyShorts } = await import('./shorts')
   const searched = await searchVideos('#shorts', maxResults, {
     channelId,
     order: 'date',
     videoDuration: 'short',
     type: 'video',
   })
-  const items = (searched.items || []).filter(
-    (it) => !it.snippet?.channelId || it.snippet.channelId === channelId
+  let items = await keepOnlyShorts(
+    (searched.items || []).filter(
+      (it) => !it.snippet?.channelId || it.snippet.channelId === channelId
+    ),
+    [],
+    { lenient: true }
   )
   if (items.length) {
     return { kind: 'youtube#searchListResponse', items: dedupeByVideoId(items) }
@@ -675,13 +705,16 @@ export async function getChannelShorts(channelId, maxResults = 24) {
     videoDuration: 'short',
     type: 'video',
   })
+  items = await keepOnlyShorts(
+    (fallback.items || []).filter(
+      (it) => !it.snippet?.channelId || it.snippet.channelId === channelId
+    ),
+    [],
+    { lenient: false }
+  )
   return {
     kind: 'youtube#searchListResponse',
-    items: dedupeByVideoId(
-      (fallback.items || []).filter(
-        (it) => !it.snippet?.channelId || it.snippet.channelId === channelId
-      )
-    ),
+    items: dedupeByVideoId(items),
   }
 }
 

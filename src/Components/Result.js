@@ -2,8 +2,10 @@ import { useContext, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ThemeContext } from '../Hooks/ThemeContext'
 import { searchCatalog } from '../data/mockCatalog'
-import { searchVideos, videoIdOf, dedupeByVideoId } from '../utils/youtubeApi'
+import { searchVideos, searchShorts, videoIdOf, dedupeByVideoId } from '../utils/youtubeApi'
+import { isShortLikeItem } from '../utils/feed'
 import Card from './Home-components/Card'
+import ShortsRail from './ui/ShortsRail'
 import ShowMoreButton from './ui/ShowMoreButton'
 import { formatViews, timeAgo } from '../utils/format'
 
@@ -15,11 +17,14 @@ function safeDecode(value = '') {
   }
 }
 
+const PRE_SHORTS = 5
+
 const Result = () => {
   const params = useParams()
   const query = safeDecode(params.text || '').trim()
   const { setisShowScrollbar, isShowLeftbar, windowResize } = useContext(ThemeContext)
   const [items, setItems] = useState([])
+  const [shorts, setShorts] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
@@ -44,6 +49,7 @@ const Result = () => {
       setError('')
       setUsedFallback(false)
       setItems([])
+      setShorts([])
       setNextPageToken('')
       tokenRef.current = ''
 
@@ -60,7 +66,7 @@ const Result = () => {
       try {
         const live = await searchVideos(query, 24, { order: 'relevance' })
         if (cancelled || queryRef.current !== query) return
-        list = dedupeByVideoId(live?.items || [])
+        list = dedupeByVideoId(live?.items || []).filter((it) => !isShortLikeItem(it))
         tokenRef.current = live?.nextPageToken || ''
         setNextPageToken(tokenRef.current)
       } catch (_) {
@@ -69,7 +75,7 @@ const Result = () => {
 
       if (!list.length) {
         const local = searchCatalog(query, 'All')
-        list = dedupeByVideoId(local.items || [])
+        list = dedupeByVideoId(local.items || []).filter((it) => !isShortLikeItem(it))
         if (list.length) {
           if (!cancelled) setUsedFallback(true)
         } else if (liveFailed && !cancelled) {
@@ -79,8 +85,18 @@ const Result = () => {
         setNextPageToken('')
       }
 
+      const excludeIds = list.map((it) => videoIdOf(it)).filter(Boolean)
+      let shortItems = []
+      try {
+        const related = await searchShorts(query, 16, { excludeIds })
+        shortItems = (related?.items || []).filter((it) => !excludeIds.includes(videoIdOf(it)))
+      } catch (_) {
+        shortItems = []
+      }
+
       if (!cancelled && queryRef.current === query) {
         setItems(list)
+        setShorts(shortItems)
         setLoading(false)
       }
     }
@@ -101,10 +117,17 @@ const Result = () => {
         pageToken: tokenRef.current,
       })
       if (queryRef.current !== forQuery) return
-      const extra = dedupeByVideoId(more?.items || [])
+      const extra = dedupeByVideoId(more?.items || []).filter((it) => !isShortLikeItem(it))
+      const shortIds = new Set(shorts.map((s) => videoIdOf(s)))
       setItems((prev) => {
         const seen = new Set(prev.map((v) => videoIdOf(v)))
-        return [...prev, ...extra.filter((v) => !seen.has(videoIdOf(v)))]
+        return [
+          ...prev,
+          ...extra.filter((v) => {
+            const id = videoIdOf(v)
+            return id && !seen.has(id) && !shortIds.has(id)
+          }),
+        ]
       })
       tokenRef.current = more?.nextPageToken || ''
       setNextPageToken(tokenRef.current)
@@ -116,6 +139,23 @@ const Result = () => {
 
   const leftPad =
     windowResize < 768 ? 'ml-0' : isShowLeftbar ? 'md:ml-[240px]' : 'md:ml-[72px]'
+
+  const topVideos = items.slice(0, PRE_SHORTS)
+  const restVideos = items.slice(PRE_SHORTS)
+
+  const renderRow = (item, idx) => {
+    const vid = videoIdOf(item)
+    return (
+      <div key={`${vid || idx}-${idx}`} className="sm:max-w-none">
+        <div className="hidden sm:block">
+          <ResultRow item={item} />
+        </div>
+        <div className="sm:hidden">
+          <Card item={item} channelLogo={item.meta?.channelAvatar} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`min-h-screen pt-[100px] pb-24 px-3 sm:px-6 ${leftPad} overflow-x-hidden`}>
@@ -140,7 +180,7 @@ const Result = () => {
             </div>
           ))}
         </div>
-      ) : !items.length ? (
+      ) : !items.length && !shorts.length ? (
         <div className="text-center py-20 text-[#aaa]">
           <i className="fa-solid fa-magnifying-glass text-4xl mb-3 opacity-40"></i>
           <p className="text-white text-lg mb-1">No results found</p>
@@ -151,20 +191,19 @@ const Result = () => {
         </div>
       ) : (
         <div className="flex flex-col gap-4 max-w-5xl">
-          <p className="text-xs text-[#aaa]">{items.length} result{items.length === 1 ? '' : 's'}</p>
-          {items.map((item, idx) => {
-            const vid = videoIdOf(item)
-            return (
-              <div key={`${vid || idx}-${idx}`} className="sm:max-w-none">
-                <div className="hidden sm:block">
-                  <ResultRow item={item} />
-                </div>
-                <div className="sm:hidden">
-                  <Card item={item} channelLogo={item.meta?.channelAvatar} />
-                </div>
-              </div>
-            )
-          })}
+          <p className="text-xs text-[#aaa]">
+            {items.length} video{items.length === 1 ? '' : 's'}
+            {shorts.length ? ` • ${shorts.length} Shorts` : ''}
+          </p>
+          {topVideos.map((item, idx) => renderRow(item, idx))}
+          {shorts.length ? (
+            <ShortsRail
+              title={`Shorts for “${query}”`}
+              items={shorts}
+              query={query}
+            />
+          ) : null}
+          {restVideos.map((item, idx) => renderRow(item, idx + PRE_SHORTS))}
           {nextPageToken ? (
             <ShowMoreButton onClick={loadMore} loading={loadingMore} label="Show more" />
           ) : null}
