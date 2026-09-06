@@ -1,7 +1,9 @@
 import { useOutletContext } from 'react-router-dom'
+import { useAuth } from '../../Hooks/AuthContext'
 import { formatViews, timeAgo } from '../../utils/format'
 
 const ChannelAbout = () => {
+  const { isSignedIn } = useAuth()
   const { channelData } = useOutletContext() || {}
   if (!channelData) {
     return <p className="text-[#AAAAAA] py-8 text-center">No channel details.</p>
@@ -55,8 +57,10 @@ const ChannelAbout = () => {
           {st.viewCount != null ? (
             <li className="py-3">{formatViews(st.viewCount)} views</li>
           ) : null}
-          {st.subscriberCount != null ? (
+          {isSignedIn && st.subscriberCount != null ? (
             <li className="py-3">{formatViews(st.subscriberCount)} subscribers</li>
+          ) : !isSignedIn ? (
+            <li className="py-3 text-[#aaa]">Sign in to see subscribers</li>
           ) : null}
           {st.videoCount != null ? (
             <li className="py-3">{formatViews(st.videoCount)} videos</li>

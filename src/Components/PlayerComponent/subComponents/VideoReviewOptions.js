@@ -4,6 +4,7 @@ import { getChannelsByIds } from '../../../utils/youtubeApi'
 import { getCatalogVideo } from '../../../data/mockCatalog'
 import { formatViews } from '../../../utils/format'
 import { downloadAndSave } from '../../../utils/downloads'
+import { useAuth } from '../../../Hooks/AuthContext'
 import { useLikes } from '../../../Hooks/LikesContext'
 import { useSubscriptions } from '../../../Hooks/SubscriptionsContext'
 import { useWatchLater } from '../../../Hooks/WatchLaterContext'
@@ -21,6 +22,7 @@ const VideoReviewOptions = ({ fetchData }) => {
   const [actionOk, setActionOk] = useState('')
   const [saveOpen, setSaveOpen] = useState(false)
 
+  const { isSignedIn } = useAuth()
   const { isLiked, toggleLike, getLikeCount, syncLikeBase } = useLikes()
   const { getSubscriberCount, syncSubscriberBase } = useSubscriptions()
   const { isInWatchLater } = useWatchLater()
@@ -198,9 +200,11 @@ const VideoReviewOptions = ({ fetchData }) => {
             >
               {video.snippet?.channelTitle}
             </Link>
-            <span className="text-xs text-[#aaa]">
-              {formatViews(subCount)} subscribers
-            </span>
+            {isSignedIn ? (
+              <span className="text-xs text-[#aaa]">
+                {formatViews(subCount)} subscribers
+              </span>
+            ) : null}
           </div>
           <SubscribeButton
             channelId={channelId}

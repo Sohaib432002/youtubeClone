@@ -1,6 +1,9 @@
 import { Link, useOutletContext, useParams } from 'react-router-dom'
 import { formatViews, timeAgo } from '../../utils/format'
 import { buildHomeShelves, itemThumb, itemVideoId } from '../../utils/channelContent'
+import { getChannelSubscriptions } from '../../data/mockCatalog'
+import { useSubscriptions } from '../../Hooks/SubscriptionsContext'
+import { useStudio } from '../../Hooks/StudioContext'
 import ChannelCrousel from './ChannelCrousel'
 import ChannelShelf from './ChannelShelf'
 import { PlaylistCard, ShelfShortCard, ShelfVideoCard } from './PlaylistCard'
@@ -68,6 +71,9 @@ const AllVideosHome = () => {
     channelSections = [],
     extrasReady = true,
   } = useOutletContext() || {}
+  const { subscriptions } = useSubscriptions()
+  const { getMyChannel } = useStudio()
+  const myChannel = getMyChannel()
 
   const logo =
     channelData?.snippet?.thumbnails?.high?.url ||
@@ -88,6 +94,18 @@ const AllVideosHome = () => {
     channelId,
   })
 
+  // Featured channels = channels this channel subscribed to
+  const isOwnChannel = myChannel && (myChannel.id === channelId || myChannel.id === channelData?.id)
+  const featuredChannels = isOwnChannel
+    ? subscriptions.map((s) => ({
+        id: s.channelId,
+        title: s.title,
+        avatar: s.avatar,
+        handle: s.handle,
+        subscribers: s.subscriberCount,
+      }))
+    : getChannelSubscriptions(channelId || channelData?.id, 8)
+
   if (!shelves.length) {
     return <p className="text-[#AAAAAA] py-8 text-center">No videos found for this channel.</p>
   }
@@ -107,8 +125,13 @@ const AllVideosHome = () => {
         if (shelf.type === 'channels') {
           return (
             <section key={`channels-${idx}`} className="py-5">
-              <h2 className="text-white text-lg font-bold mb-3">{shelf.title}</h2>
-              <ChannelCrousel excludeChannelId={channelData?.id} />
+              <h2 className="text-white text-lg font-bold mb-3">
+                {isOwnChannel ? 'Subscriptions' : 'Featured channels'}
+              </h2>
+              <ChannelCrousel
+                excludeChannelId={channelData?.id || channelId}
+                channels={featuredChannels}
+              />
             </section>
           )
         }

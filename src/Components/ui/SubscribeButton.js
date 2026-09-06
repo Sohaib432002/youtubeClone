@@ -4,8 +4,8 @@ import { useStudio } from '../../Hooks/StudioContext'
 import { useSubscriptions } from '../../Hooks/SubscriptionsContext'
 
 /**
- * Channel-specific subscribe control.
- * Hidden when the viewer is not signed in.
+ * Always visible Subscribe control.
+ * Guests see the button and are prompted to sign in on click.
  */
 const SubscribeButton = ({
   channelId,
@@ -16,13 +16,11 @@ const SubscribeButton = ({
   className = '',
   size = 'md',
 }) => {
-  const { isSignedIn } = useAuth()
+  const { isSignedIn, openSignIn } = useAuth()
   const { getMyChannel } = useStudio()
   const { isSubscribed, toggleSubscribe } = useSubscriptions()
   const subscribed = isSubscribed(channelId)
   const mine = getMyChannel()
-
-  if (!isSignedIn) return null
 
   const sizeClass =
     size === 'sm'
@@ -35,27 +33,34 @@ const SubscribeButton = ({
     return (
       <Link
         to="/studio/channel"
-        className={`font-semibold rounded-full bg-[#272727] text-[#f1f1f1] hover:bg-[#3f3f3f] ${sizeClass} ${className}`}
+        className={`inline-flex items-center justify-center font-semibold rounded-full bg-[#272727] text-[#f1f1f1] hover:bg-[#3f3f3f] ${sizeClass} ${className}`}
       >
         Customize channel
       </Link>
     )
   }
 
+  const onClick = () => {
+    if (!channelId) return
+    if (!isSignedIn) {
+      openSignIn()
+      return
+    }
+    toggleSubscribe({
+      channelId,
+      title,
+      handle,
+      avatar,
+      subscriberCount,
+    })
+  }
+
   return (
     <button
       type="button"
       disabled={!channelId}
-      onClick={() =>
-        toggleSubscribe({
-          channelId,
-          title,
-          handle,
-          avatar,
-          subscriberCount,
-        })
-      }
-      className={`font-semibold rounded-full transition-colors ${sizeClass} ${
+      onClick={onClick}
+      className={`inline-flex items-center justify-center font-semibold rounded-full transition-colors ${sizeClass} ${
         subscribed
           ? 'bg-[#272727] text-[#f1f1f1] hover:bg-[#3f3f3f]'
           : 'bg-white text-black hover:bg-[#d9d9d9]'

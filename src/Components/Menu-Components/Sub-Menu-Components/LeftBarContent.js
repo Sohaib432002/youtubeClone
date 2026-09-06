@@ -2,7 +2,6 @@ import { NavLink, useNavigate } from 'react-router'
 import { useAuth } from '../../../Hooks/AuthContext'
 import { useContext, useState } from 'react'
 import { ThemeContext } from '../../../Hooks/ThemeContext'
-import { getSubscriptionsPreview } from '../../../data/mockCatalog'
 import { useSubscriptions } from '../../../Hooks/SubscriptionsContext'
 import { useStudio } from '../../../Hooks/StudioContext'
 
@@ -44,16 +43,16 @@ const LeftBarContent = () => {
   const navigate = useNavigate()
   const [showAllSubs, setShowAllSubs] = useState(false)
   const [showMoreYou, setShowMoreYou] = useState(false)
-  const previewSubs = getSubscriptionsPreview()
-  const subs = isSignedIn && subscriptions.length
-    ? subscriptions.map((s) => ({
-        id: s.channelId,
-        title: s.title,
-        avatar: s.avatar,
-        hasNew: false,
-        isLive: false,
-      }))
-    : previewSubs
+  const subs =
+    isSignedIn && subscriptions.length
+      ? subscriptions.map((s) => ({
+          id: s.channelId,
+          title: s.title,
+          avatar: s.avatar,
+          hasNew: false,
+          isLive: false,
+        }))
+      : []
   const visibleSubs = showAllSubs ? subs : subs.slice(0, 5)
   const visibleYou = showMoreYou ? youLinks : youLinks.slice(0, 4)
 
@@ -148,33 +147,47 @@ const LeftBarContent = () => {
 
       <div>
         <p className="px-5 py-2 text-[14px] font-medium text-white">Subscriptions</p>
-        {visibleSubs.map((ch) => (
-          <button
-            key={ch.id}
-            type="button"
-            onClick={() => {
-              navigate(`/channel/${ch.id}`)
-              closeOnMobile()
-            }}
-            className="w-[calc(100%-16px)] flex items-center gap-4 px-3 py-2 mx-2 rounded-xl hover:bg-[#272727] text-left"
-          >
-            <img src={ch.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
-            <span className="text-[14px] text-[#f1f1f1] truncate flex-1">{ch.title}</span>
-            {ch.isLive ? (
-              <span className="text-[10px] text-red-500 font-bold tracking-wide">LIVE</span>
-            ) : ch.hasNew ? (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#3ea6ff]"></span>
+        {!isSignedIn ? (
+          <p className="px-5 py-2 text-[13px] text-[#aaa]">
+            Sign in to see channels you subscribe to.
+          </p>
+        ) : subs.length === 0 ? (
+          <p className="px-5 py-2 text-[13px] text-[#aaa]">
+            No subscriptions yet. Subscribe to channels you like.
+          </p>
+        ) : (
+          <>
+            {visibleSubs.map((ch) => (
+              <button
+                key={ch.id}
+                type="button"
+                onClick={() => {
+                  navigate(`/channel/${ch.id}`)
+                  closeOnMobile()
+                }}
+                className="w-[calc(100%-16px)] flex items-center gap-4 px-3 py-2 mx-2 rounded-xl hover:bg-[#272727] text-left"
+              >
+                <img src={ch.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+                <span className="text-[14px] text-[#f1f1f1] truncate flex-1">{ch.title}</span>
+                {ch.isLive ? (
+                  <span className="text-[10px] text-red-500 font-bold tracking-wide">LIVE</span>
+                ) : ch.hasNew ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#3ea6ff]"></span>
+                ) : null}
+              </button>
+            ))}
+            {subs.length > 5 ? (
+              <button
+                type="button"
+                onClick={() => setShowAllSubs((v) => !v)}
+                className="w-[calc(100%-16px)] flex items-center gap-6 px-3 py-[10px] mx-2 rounded-xl text-[14px] text-[#f1f1f1] hover:bg-[#272727]"
+              >
+                <i className={`fa-solid fa-chevron-${showAllSubs ? 'up' : 'down'} w-6 text-center`}></i>
+                <span>{showAllSubs ? 'Show less' : 'Show more'}</span>
+              </button>
             ) : null}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => setShowAllSubs((v) => !v)}
-          className="w-[calc(100%-16px)] flex items-center gap-6 px-3 py-[10px] mx-2 rounded-xl text-[14px] text-[#f1f1f1] hover:bg-[#272727]"
-        >
-          <i className={`fa-solid fa-chevron-${showAllSubs ? 'up' : 'down'} w-6 text-center`}></i>
-          <span>{showAllSubs ? 'Show less' : 'Show more'}</span>
-        </button>
+          </>
+        )}
       </div>
 
       <hr className="border-[#3f3f3f] my-3 mx-4" />

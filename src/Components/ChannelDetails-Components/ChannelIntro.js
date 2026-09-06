@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { formatViews } from '../../utils/format'
+import { useAuth } from '../../Hooks/AuthContext'
 import { useSubscriptions } from '../../Hooks/SubscriptionsContext'
 import SubscribeButton from '../ui/SubscribeButton'
 
 const ChannelIntro = ({ channelData, ChannelPic }) => {
   const [more, setmore] = useState(false)
+  const { isSignedIn } = useAuth()
   const { getSubscriberCount, syncSubscriberBase } = useSubscriptions()
 
   const channelId = channelData?.id
@@ -39,7 +41,7 @@ const ChannelIntro = ({ channelData, ChannelPic }) => {
         <p className="text-sm sm:text-base mt-1 text-[#aaa]">
           <span className="text-[#f1f1f1]">{channelData?.snippet?.customUrl || ''}</span>
           {channelData?.snippet?.customUrl ? ' • ' : ''}
-          {formatViews(subscriberCount)} subscribers
+          {isSignedIn ? `${formatViews(subscriberCount)} subscribers` : 'Sign in to see subscribers'}
           {videoCount != null ? ` • ${formatViews(videoCount)} videos` : ''}
         </p>
         <p className="description text-[#aaa] text-sm mt-2 max-w-2xl leading-relaxed">

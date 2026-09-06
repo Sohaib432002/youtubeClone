@@ -743,3 +743,25 @@ export function getSubscriptionsPreview() {
     isLive: i === 2,
   }))
 }
+
+/**
+ * Channels this channel follows (for Featured channels shelf).
+ * Deterministic subset so each channel page shows its own follow list.
+ */
+export function getChannelSubscriptions(channelId, limit = 8) {
+  const others = CHANNELS.filter((c) => c.id !== channelId)
+  if (!others.length) return []
+  let hash = 0
+  String(channelId || 'ch').split('').forEach((ch) => {
+    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
+  })
+  const start = hash % others.length
+  const ordered = [...others.slice(start), ...others.slice(0, start)]
+  return ordered.slice(0, Math.min(limit, ordered.length)).map((c) => ({
+    id: c.id,
+    title: c.title,
+    avatar: c.avatar,
+    handle: c.handle,
+    subscribers: c.subscribers,
+  }))
+}

@@ -2,11 +2,18 @@ import { useRef, useState, useEffect } from 'react'
 import ChannelCard from './ChannelCard'
 import { CHANNELS } from '../../data/mockCatalog'
 
-const ChannelCrousel = ({ excludeChannelId } = {}) => {
+/**
+ * Horizontal list of channels.
+ * Pass `channels` to show a channel's subscriptions / featured follows.
+ */
+const ChannelCrousel = ({ excludeChannelId, channels: channelsProp } = {}) => {
   const scrollRef = useRef(null)
   const [showLeftbtn, setShowLeftbtn] = useState(false)
   const [showRightbtn, setShowRightbtn] = useState(false)
-  const channels = CHANNELS.filter((c) => c.id !== excludeChannelId).slice(0, 8)
+  const channels = (channelsProp?.length
+    ? channelsProp
+    : CHANNELS.filter((c) => c.id !== excludeChannelId).slice(0, 8)
+  ).filter((c) => c && c.id !== excludeChannelId)
 
   const updateButtonVisibility = () => {
     const el = scrollRef.current
@@ -43,6 +50,14 @@ const ChannelCrousel = ({ excludeChannelId } = {}) => {
     }
   }, [channels.length])
 
+  if (!channels.length) {
+    return (
+      <p className="text-[#aaa] text-sm py-4">
+        No subscribed channels to show yet.
+      </p>
+    )
+  }
+
   return (
     <div className="relative">
       {showLeftbtn ? (
@@ -61,13 +76,13 @@ const ChannelCrousel = ({ excludeChannelId } = {}) => {
         className="flex overflow-x-auto scroll-smooth scrollbar-hide gap-2"
       >
         {channels.map((ch) => (
-          <div key={ch.id} className="flex-shrink-0 w-[160px]">
+          <div key={ch.id || ch.channelId} className="flex-shrink-0 w-[160px]">
             <ChannelCard
-              channelId={ch.id}
+              channelId={ch.id || ch.channelId}
               title={ch.title}
               avatar={ch.avatar}
               handle={ch.handle}
-              subscriberCount={ch.subscribers}
+              subscriberCount={ch.subscribers || ch.subscriberCount}
             />
           </div>
         ))}

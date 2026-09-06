@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { formatViews } from '../../utils/format'
+import { useAuth } from '../../Hooks/AuthContext'
 import { useSubscriptions } from '../../Hooks/SubscriptionsContext'
 import SubscribeButton from '../ui/SubscribeButton'
 
@@ -11,6 +12,7 @@ const ChannelCard = ({
   handle = '',
   subscriberCount,
 }) => {
+  const { isSignedIn } = useAuth()
   const { getSubscriberCount } = useSubscriptions()
   const count = getSubscriberCount(channelId, subscriberCount)
   const logo = avatar || '/favicon.ico'
@@ -28,7 +30,11 @@ const ChannelCard = ({
       <Link to={to} className="mt-3 text-[14px] text-white font-medium line-clamp-2 hover:underline">
         {title}
       </Link>
-      <span className="text-[12px] text-[#aaa] mt-1">{formatViews(count)} subscribers</span>
+      {isSignedIn ? (
+        <span className="text-[12px] text-[#aaa] mt-1">{formatViews(count)} subscribers</span>
+      ) : (
+        <span className="text-[12px] text-[#aaa] mt-1">Sign in to see subscribers</span>
+      )}
       <div className="mt-3">
         <SubscribeButton
           channelId={channelId}
