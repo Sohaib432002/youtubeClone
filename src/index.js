@@ -6,6 +6,11 @@ import ChannelDetails from './Components/ChannelDetails'
 import AllVidoesHome from './Components/ChannelDetails-Components/AllVidoesHome'
 import Playlist from './Components/ChannelDetails-Components/Playlist'
 import Video from './Components/ChannelDetails-Components/Videos'
+import ChannelShorts from './Components/ChannelDetails-Components/ChannelShorts'
+import ChannelLive from './Components/ChannelDetails-Components/ChannelLive'
+import ChannelAbout from './Components/ChannelDetails-Components/ChannelAbout'
+import ChannelPlaylistVideos from './Components/ChannelDetails-Components/ChannelPlaylistVideos'
+import ChannelSearch from './Components/ChannelDetails-Components/ChannelSearch'
 import History from './Components/Menu-Components/History'
 import Home from './Components/Menu-Components/Home'
 import Self from './Components/Menu-Components/Self'
@@ -38,9 +43,14 @@ import PlaylistDetail from './Components/Menu-Components/PlaylistDetail'
 const channelChildren = [
   { path: '', element: <AllVidoesHome /> },
   { path: 'videolist', element: <Video /> },
+  { path: 'shorts', element: <ChannelShorts /> },
+  { path: 'live', element: <ChannelLive /> },
   { path: 'Playlist', element: <Playlist /> },
+  { path: 'Playlist/:playlistId', element: <ChannelPlaylistVideos /> },
   { path: 'Posts', element: <PostDetails /> },
   { path: 'Posts/:post', element: <PostComments /> },
+  { path: 'about', element: <ChannelAbout /> },
+  { path: 'search', element: <ChannelSearch /> },
   { path: 'videolist/:id', element: <VideoPlayer /> },
 ]
 

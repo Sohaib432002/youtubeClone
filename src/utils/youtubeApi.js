@@ -584,3 +584,157 @@ export async function getMostPopular(
 
   return { items: [] }
 }
+
+function emptyPlaylistList() {
+  return { kind: 'youtube#playlistListResponse', items: [] }
+}
+
+/** Channel playlists (YouTube playlists.list). Falls back to grouped uploads. */
+export async function getChannelPlaylists(channelId, maxResults = 24) {
+  if (!channelId) return emptyPlaylistList()
+
+  if (String(channelId).startsWith('ch_')) {
+    const { VIDEOS, toSearchItem } = await import('../data/mockCatalog')
+    const { buildMockPlaylists } = await import('./channelContent')
+    const items = (VIDEOS || [])
+      .filter((v) => v.channelId === channelId)
+      .map(toSearchItem)
+    const title = items[0]?.snippet?.channelTitle || ''
+    return { ...emptyPlaylistList(), items: buildMockPlaylists(channelId, items, title) }
+  }
+
+  const yt = await fetchWithYoutubeKeys(
+    (key) =>
+      `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&channelId=${encodeURIComponent(
+        channelId
+      )}&maxResults=${clampMax(maxResults)}&key=${key}`
+  )
+  if (yt?.items?.length) {
+    return { kind: 'youtube#playlistListResponse', items: yt.items }
+  }
+
+  const uploads = await getChannelVideos(channelId, 24)
+  const { buildMockPlaylists } = await import('./channelContent')
+  const title = uploads.items?.[0]?.snippet?.channelTitle || ''
+  return {
+    ...emptyPlaylistList(),
+    items: buildMockPlaylists(channelId, uploads.items || [], title),
+  }
+}
+
+/** Videos inside a playlist (YouTube playlistItems.list). */
+export async function getPlaylistVideos(playlistId, maxResults = 32) {
+  if (!playlistId) return emptySearch()
+
+  if (String(playlistId).startsWith('pl_')) {
+    const { getMockPlaylistVideos } = await import('./channelContent')
+    return { ...emptySearch(), items: getMockPlaylistVideos(playlistId) }
+  }
+
+  const pl = await fetchWithYoutubeKeys(
+    (key) =>
+      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${encodeURIComponent(
+        playlistId
+      )}&maxResults=${clampMax(maxResults)}&key=${key}`
+  )
+  if (pl?.items?.length) {
+    return {
+      kind: 'youtube#searchListResponse',
+      items: dedupeByVideoId(pl.items.map(mapPlaylistItemToSearchItem).filter(Boolean)),
+      nextPageToken: pl.nextPageToken || undefined,
+    }
+  }
+  return emptySearch()
+}
+
+/** Channel Shorts. */
+export async function getChannelShorts(channelId, maxResults = 24) {
+  if (!channelId) return emptySearch()
+
+  if (String(channelId).startsWith('ch_')) {
+    const { mockChannelShorts } = await import('./channelContent')
+    return { ...emptySearch(), items: mockChannelShorts(channelId) }
+  }
+
+  const searched = await searchVideos('#shorts', maxResults, {
+    channelId,
+    order: 'date',
+    videoDuration: 'short',
+    type: 'video',
+  })
+  const items = (searched.items || []).filter(
+    (it) => !it.snippet?.channelId || it.snippet.channelId === channelId
+  )
+  if (items.length) {
+    return { kind: 'youtube#searchListResponse', items: dedupeByVideoId(items) }
+  }
+
+  const fallback = await searchVideos('', maxResults, {
+    channelId,
+    order: 'date',
+    videoDuration: 'short',
+    type: 'video',
+  })
+  return {
+    kind: 'youtube#searchListResponse',
+    items: dedupeByVideoId(
+      (fallback.items || []).filter(
+        (it) => !it.snippet?.channelId || it.snippet.channelId === channelId
+      )
+    ),
+  }
+}
+
+/** Live / upcoming / completed streams for a channel. */
+export async function getChannelLiveVideos(channelId, maxResults = 16) {
+  if (!channelId) return emptySearch()
+
+  if (String(channelId).startsWith('ch_')) {
+    const uploads = await getChannelVideos(channelId, 24)
+    const { mockChannelLive } = await import('./channelContent')
+    return { ...emptySearch(), items: mockChannelLive(uploads.items || [], channelId) }
+  }
+
+  const tag = (payload, status) =>
+    (payload?.items || [])
+      .filter((it) => !it.snippet?.channelId || it.snippet.channelId === channelId)
+      .map((it) => ({
+        ...it,
+        liveStatus: it.snippet?.liveBroadcastContent || status,
+      }))
+
+  const [live, upcoming, completed] = await Promise.all([
+    searchVideos('', maxResults, { channelId, eventType: 'live', order: 'date', type: 'video' }),
+    searchVideos('', maxResults, {
+      channelId,
+      eventType: 'upcoming',
+      order: 'date',
+      type: 'video',
+    }),
+    searchVideos('', maxResults, {
+      channelId,
+      eventType: 'completed',
+      order: 'date',
+      type: 'video',
+    }),
+  ])
+
+  const items = dedupeByVideoId([
+    ...tag(live, 'live'),
+    ...tag(upcoming, 'upcoming'),
+    ...tag(completed, 'completed'),
+  ])
+  return { kind: 'youtube#searchListResponse', items }
+}
+
+/** Featured channel sections (YouTube channelSections.list). */
+export async function getChannelSections(channelId) {
+  if (!channelId || String(channelId).startsWith('ch_')) return { items: [] }
+  const yt = await fetchWithYoutubeKeys(
+    (key) =>
+      `https://www.googleapis.com/youtube/v3/channelSections?part=snippet,contentDetails&channelId=${encodeURIComponent(
+        channelId
+      )}&key=${key}`
+  )
+  return { items: yt?.items || [] }
+}

@@ -1,65 +1,75 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router'
 import { getChannelLogoMap, videoIdOf, dedupeByVideoId } from '../../utils/youtubeApi'
+import { longformVideos, sortVideos } from '../../utils/channelContent'
 import Card from '../Home-components/Card'
+
+const SORTS = [
+  { id: 'latest', label: 'Latest' },
+  { id: 'popular', label: 'Popular' },
+  { id: 'oldest', label: 'Oldest' },
+]
 
 const Videos = () => {
   const outlet = useOutletContext() || {}
   const channelVideosReady = outlet.channelVideosReady !== false
-  const [vidoelistData, setVideolistData] = useState([])
+  const [sort, setSort] = useState('latest')
   const [logoMap, setLogoMap] = useState({})
-  const [loading, setLoading] = useState(true)
+
+  const list = useMemo(() => {
+    const uploads = longformVideos(dedupeByVideoId(outlet.channelVideos || []))
+    return sortVideos(uploads, sort)
+  }, [outlet.channelVideos, sort])
 
   useEffect(() => {
+    const ids = list.map((v) => v.snippet?.channelId).filter(Boolean)
+    if (!ids.length) return undefined
     let cancelled = false
-    const channelVideos = outlet.channelVideos || []
-    const load = async () => {
-      if (!channelVideosReady) {
-        setLoading(true)
-        return
-      }
-
-      const list = dedupeByVideoId(channelVideos).map((v) => ({
-        ...v,
-        id: { videoId: videoIdOf(v) },
-        snippet: v.snippet,
-      })).filter((v) => v.id.videoId && v.snippet)
-
-      setVideolistData(list)
-      if (!list.length) {
-        if (!cancelled) setLoading(false)
-        return
-      }
-
-      const map = await getChannelLogoMap(list.map((v) => v.snippet?.channelId))
-      if (!cancelled) {
-        setLogoMap(map)
-        setLoading(false)
-      }
-    }
-    load()
+    getChannelLogoMap(ids).then((map) => {
+      if (!cancelled) setLogoMap(map)
+    })
     return () => {
       cancelled = true
     }
-  }, [outlet.channelVideos, channelVideosReady])
+  }, [list])
 
-  if (!channelVideosReady || loading) {
+  const logo =
+    outlet.channelData?.snippet?.thumbnails?.default?.url ||
+    logoMap[outlet.channelData?.id]
+
+  if (!channelVideosReady) {
     return <p className="text-[#AAAAAA] py-6 text-center">Loading videos...</p>
   }
 
-  if (!vidoelistData.length) {
+  if (!list.length) {
     return <p className="text-[#AAAAAA] py-6 text-center">No videos found for this channel.</p>
   }
 
   return (
-    <div className="grid vidocardlist grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 my-5 px-1">
-      {vidoelistData.map((item) => (
-        <Card
-          key={item.id?.videoId || item.id}
-          item={item}
-          channelLogo={logoMap[item.snippet?.channelId]}
-        />
-      ))}
+    <div className="py-4">
+      <div className="flex gap-2 mb-4">
+        {SORTS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setSort(s.id)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+              sort === s.id ? 'bg-white text-black' : 'bg-[#272727] text-white hover:bg-[#3f3f3f]'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      <div className="grid vidocardlist grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 px-1">
+        {list.map((item) => (
+          <Card
+            key={item.id?.videoId || videoIdOf(item)}
+            item={item}
+            channelLogo={logoMap[item.snippet?.channelId] || logo}
+          />
+        ))}
+      </div>
     </div>
   )
 }

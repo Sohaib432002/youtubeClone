@@ -1,109 +1,98 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router'
-import Comments from '../PlayerComponent/Comments'
-import CommentSkel from '../PlayerComponent/subComponents/CommentSkel'
-const listbtnIcons = ['flag']
-const listbtnNames = ['Report']
+import { useMemo, useState } from 'react'
+import { Link, useOutletContext, useParams } from 'react-router-dom'
+import PostDetialsCard from './PostDetialsCard'
 
 const PostComments = () => {
-  const [options, setOptions] = useState(false)
-  const [commentData] = useState([])
-  console.log(commentData)
-  const [fetchData] = useState([])
-  return (
-    <>
-      <div className="flex flex-col items-center justify-center my-7">
-        <div className="m-1 flex items-start  max-w-[800px] justify-between cursor-pointer border bg-gray-600 rounded-lg">
-          <div className="flex ">
-            <div className="flex justify-center p-2 items-start">
-              <Link to="/profile">
-                <img
-                  src="https://wallpapers.com/images/hd/cool-profile-picture-paper-bag-head-4co57dtwk64fb7lv.jpg"
-                  className="rounded-full m-2"
-                  alt="profile"
-                  width={70}
-                />
-              </Link>
-            </div>
+  const { channelId, post: postId } = useParams()
+  const { channelPosts = [], channelData } = useOutletContext() || {}
+  const post = useMemo(
+    () => (channelPosts || []).find((p) => p.id === postId) || channelPosts[0],
+    [channelPosts, postId]
+  )
+  const [text, setText] = useState('')
+  const [comments, setComments] = useState([
+    {
+      id: 'c1',
+      author: 'Alex',
+      text: 'Love this update — keep them coming.',
+      at: '2 days ago',
+    },
+    {
+      id: 'c2',
+      author: 'Samira',
+      text: 'Been waiting for a community post like this.',
+      at: '5 days ago',
+    },
+  ])
 
-            <div className="flex p-3  flex-col  justify-start font-sans text-white text-[16px]">
-              <Link to="/user/junaid">
-                <span className="cursor-pointer">Junaid Akram • 10 months ago</span>
-              </Link>
+  const base = channelId ? `/channel/${channelId}` : '/CD'
 
-              <p className="my-1">
-                We recently hosted an impactful event on countering human smuggling and
-                trafficking...
-              </p>
-
-              <img
-                src="https://media.istockphoto.com/id/1285124274/photo/middle-age-man-portrait.jpg?s=612x612&w=0&k=20&c=D14m64UChVZyRhAr6MJW3guo7MKQbKvgNVdKmsgQ_1g="
-                className="rounded-lg"
-                width={1000}
-                alt="post"
-              />
-
-              <div className="flex justify-start items-center mt-2">
-                <span className="flex items-center">
-                  <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1 rounded-full">
-                    <i className="fa-regular fa-thumbs-up mx-1"></i>
-                  </span>
-                  <span>123</span>
-                  <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1 rounded-full">
-                    <i className="fa-regular fa-thumbs-down mx-1"></i>
-                  </span>
-                </span>
-
-                <span className="flex ml-4">
-                  <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1 rounded-full">
-                    <i className="fa-solid fa-share mx-1"></i>
-                  </span>
-                </span>
-              </div>
-            </div>
-            <div className="flex justify-center items-start ">
-              <span
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setOptions(!options)
-                }}
-                className="hover:bg-gray-500 relative cursor-pointer m-2 p-2 rounded-full"
-              >
-                <i className="fa-solid fa-ellipsis-vertical mx-1"></i>
-
-                {options && (
-                  <div className="z-30 right-[20px] top-[20px] text-[16px] overflow-hidden w-[210px] bg-[#272727] rounded-lg absolute">
-                    {listbtnNames.map((item, i) => {
-                      return (
-                        <div key={i} className="flex flex-col">
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              alert(`${item}, we are working on it`)
-                            }}
-                            className="px-4 hover:bg-[#414140] flex items-center py-2"
-                          >
-                            <i className={`fa-solid mx-2 fa-${listbtnIcons[i]}`}></i>
-                            <p>{item}</p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="w-[100%] ">
-          {commentData.length === 0 ? (
-            <CommentSkel commentData={commentData} />
-          ) : (
-            <Comments fetchData={fetchData} commentData={commentData} />
-          )}
-        </div>
+  if (!post) {
+    return (
+      <div className="text-center py-12 text-white">
+        <p className="mb-3">Post not found</p>
+        <Link to={`${base}/Posts`} className="text-[#3ea6ff] text-sm hover:underline">
+          Back to Posts
+        </Link>
       </div>
-    </>
+    )
+  }
+
+  return (
+    <div className="flex flex-col items-center py-6">
+      <div className="w-full max-w-[720px] mb-3">
+        <Link to={`${base}/Posts`} className="text-sm text-[#3ea6ff] hover:underline">
+          ← Posts
+        </Link>
+      </div>
+      <PostDetialsCard post={post} channelData={channelData} />
+      <div className="w-full max-w-[720px] mt-6 text-white">
+        <h3 className="font-semibold mb-3">{comments.length} comments</h3>
+        <form
+          className="flex gap-2 mb-5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const value = text.trim()
+            if (!value) return
+            setComments((prev) => [
+              { id: `c_${Date.now()}`, author: 'You', text: value, at: 'Just now' },
+              ...prev,
+            ])
+            setText('')
+          }}
+        >
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Add a comment..."
+            className="flex-1 bg-transparent border-b border-[#3f3f3f] py-2 text-sm outline-none focus:border-white"
+          />
+          <button
+            type="submit"
+            className="text-sm bg-[#3ea6ff] text-black font-medium rounded-full px-4 py-1.5 disabled:opacity-40"
+            disabled={!text.trim()}
+          >
+            Comment
+          </button>
+        </form>
+        <ul className="space-y-4">
+          {comments.map((c) => (
+            <li key={c.id} className="flex gap-3">
+              <div className="w-9 h-9 rounded-full bg-[#272727] flex items-center justify-center text-xs">
+                {c.author.slice(0, 1)}
+              </div>
+              <div>
+                <p className="text-sm">
+                  <span className="font-medium">{c.author}</span>
+                  <span className="text-[#aaa] ml-2">{c.at}</span>
+                </p>
+                <p className="text-sm mt-1 text-[#ddd]">{c.text}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   )
 }
 

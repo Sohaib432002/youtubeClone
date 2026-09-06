@@ -1,99 +1,81 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { formatViews, timeAgo } from '../../utils/format'
 
-const listbtnIcons = ['flag']
-const listbtnNames = ['Report']
+const PostDetialsCard = ({ post, channelData }) => {
+  const { channelId } = useParams()
+  const [liked, setLiked] = useState(false)
+  const [likes, setLikes] = useState(post?.likes || 0)
+  if (!post) return null
 
-const PostDetialsCard = () => {
-  const [options, setOptions] = useState(false)
+  const avatar =
+    post.channelAvatar ||
+    channelData?.snippet?.thumbnails?.high?.url ||
+    '/favicon.ico'
+  const base = channelId ? `/channel/${channelId}` : '/CD'
 
   return (
-    <div className="flex items-center justify-center my-7">
-      <div className="m-1 flex items-start max-w-[800px] justify-between cursor-pointer border bg-gray-600 rounded-lg">
-        <div className="flex justify-center p-2 items-start">
-          <Link to="/profile">
-            <img
-              src="https://wallpapers.com/images/hd/cool-profile-picture-paper-bag-head-4co57dtwk64fb7lv.jpg"
-              className="rounded-full m-2"
-              alt="profile"
-              width={70}
-            />
-          </Link>
-        </div>
-
-        <div className="flex p-3  flex-col  justify-start font-sans text-white text-[16px]">
-          <Link to="/user/junaid">
-            <span className="cursor-pointer">Junaid Akram • 10 months ago</span>
-          </Link>
-
-          <p className="my-1">
-            We recently hosted an impactful event on countering human smuggling and trafficking...
+    <article className="w-full max-w-[720px] rounded-xl border border-[#3f3f3f] bg-[#181818] p-4 sm:p-5 text-white">
+      <div className="flex items-start gap-3">
+        <img src={avatar} alt="" className="w-10 h-10 rounded-full object-cover bg-[#272727]" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm">
+            <span className="font-medium">{post.channelTitle}</span>
+            <span className="text-[#aaa]"> • {timeAgo(post.publishedAt)}</span>
           </p>
-
-          <img
-            src="https://media.istockphoto.com/id/1285124274/photo/middle-age-man-portrait.jpg?s=612x612&w=0&k=20&c=D14m64UChVZyRhAr6MJW3guo7MKQbKvgNVdKmsgQ_1g="
-            className="rounded-lg"
-            width={1000}
-            alt="post"
-          />
-
-          <div className="flex justify-start items-center mt-2">
-            <span className="flex items-center">
-              <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1 rounded-full">
-                <i className="fa-regular fa-thumbs-up mx-1"></i>
-              </span>
-              <span>123</span>
-              <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1 rounded-full">
-                <i className="fa-regular fa-thumbs-down mx-1"></i>
-              </span>
-            </span>
-
-            <span className="flex ml-4">
-              <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1 rounded-full">
-                <i className="fa-solid fa-share mx-1"></i>
-              </span>
-              <Link to={'./1'}>
-                <span className="hover:bg-gray-500 cursor-pointer mx-1 p-1 rounded-full">
-                  <i className="fa-regular fa-message mx-1"></i>
-                  <span>23</span>
-                </span>
-              </Link>
-            </span>
+          <p className="text-[15px] mt-3 whitespace-pre-wrap leading-relaxed">{post.text}</p>
+          {post.image ? (
+            <img
+              src={post.image}
+              alt=""
+              className="mt-3 w-full max-h-[420px] object-cover rounded-xl bg-[#272727]"
+            />
+          ) : null}
+          {post.videoId ? (
+            <Link
+              to={`/Video/${post.videoId}`}
+              className="inline-flex items-center gap-2 mt-3 text-sm text-[#3ea6ff] hover:underline"
+            >
+              <i className="fa-solid fa-play"></i>
+              Watch video
+            </Link>
+          ) : null}
+          <div className="flex items-center gap-1 mt-4 text-sm text-[#aaa]">
+            <button
+              type="button"
+              className={`px-3 py-1.5 rounded-full hover:bg-[#272727] ${liked ? 'text-white' : ''}`}
+              onClick={() => {
+                setLiked((v) => !v)
+                setLikes((n) => (liked ? n - 1 : n + 1))
+              }}
+            >
+              <i className={`${liked ? 'fa-solid' : 'fa-regular'} fa-thumbs-up mr-2`}></i>
+              {formatViews(likes)}
+            </button>
+            <button type="button" className="px-3 py-1.5 rounded-full hover:bg-[#272727]">
+              <i className="fa-regular fa-thumbs-down"></i>
+            </button>
+            <Link
+              to={`${base}/Posts/${post.id}`}
+              className="px-3 py-1.5 rounded-full hover:bg-[#272727]"
+            >
+              <i className="fa-regular fa-comment mr-2"></i>
+              {formatViews(post.commentCount)}
+            </Link>
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-full hover:bg-[#272727]"
+              onClick={() => {
+                navigator.clipboard?.writeText(window.location.href)
+              }}
+            >
+              <i className="fa-solid fa-share mr-2"></i>
+              Share
+            </button>
           </div>
         </div>
-
-        <span
-          onClick={(e) => {
-            e.stopPropagation()
-            setOptions(!options)
-          }}
-          className="hover:bg-gray-500 relative cursor-pointer m-2 p-2 rounded-full"
-        >
-          <i className="fa-solid fa-ellipsis-vertical mx-1"></i>
-
-          {options && (
-            <div className="z-30 right-[20px] top-[20px] text-[16px] overflow-hidden w-[210px] bg-[#272727] rounded-lg absolute">
-              {listbtnNames.map((item, i) => {
-                return (
-                  <div key={i} className="flex flex-col">
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        alert(`${item}, we are working on it`)
-                      }}
-                      className="px-4 hover:bg-[#414140] flex items-center py-2"
-                    >
-                      <i className={`fa-solid mx-2 fa-${listbtnIcons[i]}`}></i>
-                      <p>{item}</p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </span>
       </div>
-    </div>
+    </article>
   )
 }
 

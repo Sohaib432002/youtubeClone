@@ -2,8 +2,23 @@ import { useContext, useEffect, useState } from 'react'
 import { Outlet, useParams } from 'react-router'
 import { ThemeContext } from '../Hooks/ThemeContext'
 import { useSubscriptions } from '../Hooks/SubscriptionsContext'
-import { getChannelsByIds, getChannelVideos, videoIdOf, dedupeByVideoId } from '../utils/youtubeApi'
+import {
+  getChannelsByIds,
+  getChannelVideos,
+  getChannelPlaylists,
+  getChannelShorts,
+  getChannelLiveVideos,
+  getChannelSections,
+  videoIdOf,
+  dedupeByVideoId,
+} from '../utils/youtubeApi'
 import { CHANNELS, VIDEOS, toSearchItem } from '../data/mockCatalog'
+import {
+  buildChannelPosts,
+  buildMockPlaylists,
+  mockChannelShorts,
+  mockChannelLive,
+} from '../utils/channelContent'
 import ChannelBanner from './ChannelDetails-Components/ChannelBanner'
 import ChannelIntro from './ChannelDetails-Components/ChannelIntro'
 import OptionsSelection from './ChannelDetails-Components/OptionsSelection'
@@ -14,7 +29,13 @@ const ChannelDetails = () => {
   const { getSubscriberCount, ensureChannelCount } = useSubscriptions()
   const [channelData, setChannelData] = useState(null)
   const [channelVideos, setChannelVideos] = useState([])
+  const [channelPlaylists, setChannelPlaylists] = useState([])
+  const [channelShorts, setChannelShorts] = useState([])
+  const [channelLive, setChannelLive] = useState([])
+  const [channelPosts, setChannelPosts] = useState([])
+  const [channelSections, setChannelSections] = useState([])
   const [loading, setLoading] = useState(true)
+  const [extrasReady, setExtrasReady] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -32,9 +53,15 @@ const ChannelDetails = () => {
         return
       }
       setLoading(true)
+      setExtrasReady(false)
       setError('')
       setChannelData(null)
       setChannelVideos([])
+      setChannelPlaylists([])
+      setChannelShorts([])
+      setChannelLive([])
+      setChannelPosts([])
+      setChannelSections([])
 
       const local = CHANNELS.find((c) => c.id === id)
       if (local) {
@@ -43,6 +70,10 @@ const ChannelDetails = () => {
         )
         const baseSubs = local.subscribers
         ensureChannelCount(local.id, baseSubs)
+        const viewCount = vids.reduce(
+          (sum, v) => sum + Number(v.statistics?.viewCount || v.meta?.views || 0),
+          0
+        )
         const fake = {
           id: local.id,
           snippet: {
@@ -51,6 +82,8 @@ const ChannelDetails = () => {
             description:
               local.description ||
               `Welcome to ${local.title}. Independent channel with its own videos and subscribers.`,
+            publishedAt: '2018-04-28T14:50:54Z',
+            country: 'US',
             thumbnails: {
               high: { url: local.avatar },
               medium: { url: local.avatar },
@@ -60,9 +93,10 @@ const ChannelDetails = () => {
           statistics: {
             subscriberCount: String(getSubscriberCount(local.id, baseSubs)),
             videoCount: String(vids.length),
+            viewCount: String(viewCount),
           },
           brandingSettings: {
-            channel: { title: local.title },
+            channel: { title: local.title, country: 'US' },
             image: {
               bannerExternalUrl:
                 local.banner ||
@@ -70,9 +104,19 @@ const ChannelDetails = () => {
             },
           },
         }
+        const playlists = buildMockPlaylists(local.id, vids, local.title)
+        const shorts = mockChannelShorts(local.id)
+        const live = mockChannelLive(vids, local.id)
+        const posts = buildChannelPosts(fake, vids)
         if (!cancelled) {
           setChannelData(fake)
           setChannelVideos(vids)
+          setChannelPlaylists(playlists)
+          setChannelShorts(shorts)
+          setChannelLive(live)
+          setChannelPosts(posts)
+          setChannelSections([])
+          setExtrasReady(true)
           setLoading(false)
         }
         return
@@ -102,6 +146,29 @@ const ChannelDetails = () => {
           )
           if (!cancelled) {
             setChannelVideos(filtered)
+            setLoading(false)
+          }
+
+          try {
+            const [playlists, shorts, live, sections] = await Promise.all([
+              getChannelPlaylists(id, 24),
+              getChannelShorts(id, 20),
+              getChannelLiveVideos(id, 16),
+              getChannelSections(id),
+            ])
+            if (cancelled) return
+            setChannelPlaylists(playlists?.items || [])
+            setChannelShorts(dedupeByVideoId(shorts?.items || []))
+            setChannelLive(dedupeByVideoId(live?.items || []))
+            setChannelSections(sections?.items || [])
+            setChannelPosts(buildChannelPosts(ch, filtered))
+          } catch (extraErr) {
+            console.error(extraErr)
+            if (!cancelled) {
+              setChannelPosts(buildChannelPosts(ch, filtered))
+            }
+          } finally {
+            if (!cancelled) setExtrasReady(true)
           }
         } else {
           setChannelData(null)
@@ -177,7 +244,19 @@ const ChannelDetails = () => {
       {bannerExternalUrl ? <ChannelBanner bannerExternalUrl={bannerExternalUrl} /> : null}
       <ChannelIntro ChannelPic={ChannelPic} channelData={channelData} />
       <OptionsSelection channelId={channelId} />
-      <Outlet context={{ channelData, channelVideos, channelVideosReady: !loading }} />
+      <Outlet
+        context={{
+          channelData,
+          channelVideos,
+          channelVideosReady: !loading,
+          channelPlaylists,
+          channelShorts,
+          channelLive,
+          channelPosts,
+          channelSections,
+          extrasReady,
+        }}
+      />
     </div>
   )
 }

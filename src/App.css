@@ -32,18 +32,35 @@ body {
   display: none;
 }
 
+.optionsSelection {
+  border-bottom: 1px solid #272727;
+}
+
 .optionsSelection li {
-  margin-inline: 10px;
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .optionsSelection li a {
-  margin: 0px;
-  padding: 0px;
+  display: inline-flex;
+  align-items: center;
+  margin: 0 4px;
+  padding: 12px 10px 11px;
+  color: #aaa;
+  font-size: 14px;
+  font-weight: 500;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
 }
 
 .optionsSelection li a:hover {
   cursor: pointer;
-  border-bottom-width: 1px;
+  color: #fff;
+}
+
+.optionsSelection li a.active-tab {
+  color: #fff;
+  border-bottom-color: #fff;
 }
 
 .btn-subscribe-pc {

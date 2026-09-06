@@ -1,34 +1,46 @@
-import { Link, useParams } from 'react-router'
+import { NavLink, useParams, useLocation } from 'react-router-dom'
+
+const TABS = [
+  { path: '', label: 'Home', end: true },
+  { path: 'videolist', label: 'Videos' },
+  { path: 'shorts', label: 'Shorts' },
+  { path: 'live', label: 'Live' },
+  { path: 'Playlist', label: 'Playlists' },
+  { path: 'Posts', label: 'Posts' },
+  { path: 'about', label: 'About' },
+]
 
 const OptionsSelection = () => {
   const { channelId } = useParams()
+  const location = useLocation()
   const base = channelId ? `/channel/${channelId}` : '/CD'
+  const searching = location.pathname.endsWith('/search')
 
   return (
-    <div className="text-white sticky top-[56px] bg-[#0F0F0F] z-[5]">
-      <ul className="flex optionsSelection overflow-x-auto scrollbar-hide gap-1">
+    <div className="text-white sticky top-[56px] bg-[#0F0F0F] z-[5] -mx-1">
+      <ul className="flex optionsSelection overflow-x-auto scrollbar-hide items-end">
+        {TABS.map((tab) => (
+          <li key={tab.label}>
+            <NavLink
+              to={tab.path ? `${base}/${tab.path}` : base}
+              end={Boolean(tab.end)}
+              className={({ isActive }) => (isActive ? 'active-tab' : undefined)}
+            >
+              {tab.label}
+            </NavLink>
+          </li>
+        ))}
         <li>
-          <Link to={base} className="whitespace-nowrap">
-            Home
-          </Link>
-        </li>
-        <li>
-          <Link to={`${base}/videolist`} className="whitespace-nowrap">
-            Videos
-          </Link>
-        </li>
-        <li>
-          <Link to={`${base}/Playlist`} className="whitespace-nowrap">
-            Playlist
-          </Link>
-        </li>
-        <li>
-          <Link to={`${base}/Posts`} className="whitespace-nowrap">
-            Posts
-          </Link>
+          <NavLink
+            to={`${base}/search`}
+            className={({ isActive }) => (isActive || searching ? 'active-tab' : undefined)}
+            aria-label="Search channel"
+            title="Search"
+          >
+            <i className="fa-solid fa-magnifying-glass text-sm"></i>
+          </NavLink>
         </li>
       </ul>
-      <hr className="w-full border-[#272727]" />
     </div>
   )
 }

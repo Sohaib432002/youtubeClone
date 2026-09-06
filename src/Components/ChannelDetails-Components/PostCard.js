@@ -1,62 +1,45 @@
-import React from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
+import { formatViews, timeAgo } from '../../utils/format'
 
-const   PostCard = () => {
+const PostCard = ({ post, to }) => {
+  if (!post) return null
+  const href = to || (post.channelId ? `/channel/${post.channelId}/Posts/${post.id}` : '#')
+
   return (
-    <Link>
-      <div className="w-[500px] px-3 py-1 my-3 mx-2 cursor-pointer border-[1px] bg-gray-600 rounded-lg ">
-        <div className="flex justify-start text-[12px] cursor-pointer items-center ">
-          {' '}
-          <img
-            src={
-              'https://wallpapers.com/images/hd/cool-profile-picture-paper-bag-head-4co57dtwk64fb7lv.jpg'
-            }
-            className="rounded-full mr-2"
-            alt=""
-            width={50}
-          />
-          <span className="cursor-pointer ">Junaid Akram 10 months Ago</span>
-        </div>
-        <div className="flex justify-between items-center text-[13px] p-1">
-          <p>
-            We recently hosted an impactful event on countering human smuggling
-            and trafficking, shedding light on the harsh realities faced by
-            those who undertake this terrifying journey. Our discussion explored
-            the severe risks and exploitation involved, as well as ways to
-            address this urgent issue. A special thanks to Good Will Karavan,
-            along with Iqbal Ahmed ....
-          </p>
-          <img
-            src={
-              'https://media.istockphoto.com/id/1285124274/photo/middle-age-man-portrait.jpg?s=612x612&w=0&k=20&c=D14m64UChVZyRhAr6MJW3guo7MKQbKvgNVdKmsgQ_1g='
-            }
-            className="mx-3 rounded-lg"
-            width={200}
-            alt=""
-          />
-        </div>
-        <div className="flex justify-between">
-          <span className="flex justify-between items-center">
-            <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1  rounded-full">
-              <i className="fa-regular   mx-1 fa-thumbs-up"></i>
-            </span>
-            <span>123</span>
-            <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1  rounded-full">
-              <i className="fa-regular   mx-1 fa-thumbs-down"></i>
-            </span>
-          </span>
-          <span className="flex">
-            <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1  rounded-full">
-              <i class="fa-solid mx-1 fa-share"></i>
-            </span>
-            <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1  rounded-full">
-              <i class="fa-regular mx-1 fa-message"></i>
-            </span>
-            <span className="hover:bg-gray-500 cursor-pointer mx-1 py-1  rounded-full">
-              <i class="fa-solid mx-1 fa-ellipsis-vertical"></i>
-            </span>
-          </span>
-        </div>
+    <Link
+      to={href}
+      className="flex-shrink-0 w-[320px] sm:w-[380px] rounded-xl border border-[#3f3f3f] bg-[#181818] p-4 hover:bg-[#1f1f1f] text-white"
+    >
+      <div className="flex items-center gap-2 text-[13px] text-[#aaa]">
+        <img
+          src={post.channelAvatar || '/favicon.ico'}
+          alt=""
+          className="w-8 h-8 rounded-full object-cover bg-[#272727]"
+        />
+        <span className="text-[#f1f1f1] font-medium truncate">{post.channelTitle}</span>
+        <span>•</span>
+        <span className="whitespace-nowrap">{timeAgo(post.publishedAt)}</span>
+      </div>
+      <p className="text-sm mt-3 whitespace-pre-wrap line-clamp-4 leading-relaxed">{post.text}</p>
+      {post.image ? (
+        <img
+          src={post.image}
+          alt=""
+          className="mt-3 w-full max-h-44 object-cover rounded-lg bg-[#272727]"
+        />
+      ) : null}
+      <div className="flex items-center gap-4 mt-3 text-[#aaa] text-sm">
+        <span className="flex items-center gap-1.5">
+          <i className="fa-regular fa-thumbs-up"></i>
+          {formatViews(post.likes)}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <i className="fa-regular fa-thumbs-down"></i>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <i className="fa-regular fa-comment"></i>
+          {formatViews(post.commentCount)}
+        </span>
       </div>
     </Link>
   )
