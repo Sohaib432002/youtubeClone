@@ -268,7 +268,9 @@ export function buildHomeShelves({
 
   const push = (shelf) => {
     if (!shelf) return
+    // Only one Featured channels / subscriptions shelf — never repeat the same row
     if (shelf.type === 'channels') {
+      if (shelves.some((s) => s.type === 'channels')) return
       shelves.push(shelf)
       return
     }

@@ -156,6 +156,66 @@ export const CHANNELS = [
     description: 'Travel vlogs from around the globe.',
     banner: 'https://picsum.photos/seed/ch_travel/1280/220',
   },
+  {
+    id: 'ch_pewdiepie',
+    title: 'PewDiePie',
+    handle: '@pewdiepie',
+    avatar: 'https://i.pravatar.cc/100?u=pewdiepie',
+    subscribers: '111M',
+    verified: true,
+    description: 'Gaming, commentary, and meme reviews.',
+    banner: 'https://picsum.photos/seed/ch_pewdiepie/1280/220',
+  },
+  {
+    id: 'ch_vsauce',
+    title: 'Vsauce',
+    handle: '@Vsauce',
+    avatar: 'https://i.pravatar.cc/100?u=vsauce',
+    subscribers: '22M',
+    verified: true,
+    description: 'Mind-bending science and curiosity questions.',
+    banner: 'https://picsum.photos/seed/ch_vsauce/1280/220',
+  },
+  {
+    id: 'ch_kurzgesagt',
+    title: 'Kurzgesagt – In a Nutshell',
+    handle: '@kurzgesagt',
+    avatar: 'https://i.pravatar.cc/100?u=kurzgesagt',
+    subscribers: '23M',
+    verified: true,
+    description: 'Animated science explainers about the universe.',
+    banner: 'https://picsum.photos/seed/ch_kurzgesagt/1280/220',
+  },
+  {
+    id: 'ch_linustechtips',
+    title: 'Linus Tech Tips',
+    handle: '@LinusTechTips',
+    avatar: 'https://i.pravatar.cc/100?u=ltt',
+    subscribers: '16M',
+    verified: true,
+    description: 'PC hardware, builds, and tech industry news.',
+    banner: 'https://picsum.photos/seed/ch_linustechtips/1280/220',
+  },
+  {
+    id: 'ch_dudeperfect',
+    title: 'Dude Perfect',
+    handle: '@dudeperfect',
+    avatar: 'https://i.pravatar.cc/100?u=dudeperfect',
+    subscribers: '60M',
+    verified: true,
+    description: 'Trick shots, stereotypes, and sports entertainment.',
+    banner: 'https://picsum.photos/seed/ch_dudeperfect/1280/220',
+  },
+  {
+    id: 'ch_crashcourse',
+    title: 'CrashCourse',
+    handle: '@crashcourse',
+    avatar: 'https://i.pravatar.cc/100?u=crashcourse',
+    subscribers: '15M',
+    verified: true,
+    description: 'Fast educational series on history, science, and more.',
+    banner: 'https://picsum.photos/seed/ch_crashcourse/1280/220',
+  },
 ]
 
 const YT_IDS = [
@@ -602,13 +662,14 @@ function scoreRelated(candidate, current, keywords) {
 
 /**
  * Related videos: long-form only (no Shorts), ranked by category / channel / keywords.
- * Never pads with unrelated videos — returns fewer items if needed.
+ * Unique videoIds only; max 2 per channel so the rail does not look repeated.
  */
 export function getRelated(videoId, limit = 20, hint = {}) {
   const current = getCatalogVideo(videoId)
   const titleHint = hint.title || current?.title || ''
   const categoryHint = hint.category || current?.category || ''
   const channelHint = hint.channelId || current?.channelId || ''
+  const exclude = new Set([videoId, ...(hint.excludeIds || [])].filter(Boolean))
   const keywords = extractKeywords(
     `${titleHint} ${categoryHint} ${hint.description || current?.description || ''} ${(current?.tags || []).join(' ')}`
   )
@@ -620,10 +681,14 @@ export function getRelated(videoId, limit = 20, hint = {}) {
   }
 
   const pool = VIDEOS.filter(
-    (v) => v.videoId !== videoId && !v.isShort && (v.durationSec || 120) >= 60
+    (v) =>
+      v.videoId &&
+      !exclude.has(v.videoId) &&
+      !v.isShort &&
+      (v.durationSec || 120) >= 60
   )
 
-  const MIN_SCORE = categoryHint ? 40 : 20
+  const MIN_SCORE = categoryHint ? 35 : 18
 
   const ranked = pool
     .map((v) => ({ v, score: scoreRelated(v, currentMeta, keywords) }))
@@ -631,12 +696,28 @@ export function getRelated(videoId, limit = 20, hint = {}) {
     .sort((a, b) => b.score - a.score)
 
   const picked = []
-  const seen = new Set()
+  const seenIds = new Set()
+  const seenTitles = new Set()
+  const perChannel = new Map()
+
+  const normTitle = (t) =>
+    String(t || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+
   const push = (v) => {
-    if (!v || seen.has(v.id) || seen.has(v.videoId)) return
-    seen.add(v.id)
-    seen.add(v.videoId)
+    if (!v?.videoId || seenIds.has(v.videoId)) return false
+    const nt = normTitle(v.title)
+    if (nt && seenTitles.has(nt)) return false
+    const ch = v.channelId || v.channelTitle || '_'
+    const count = perChannel.get(ch) || 0
+    if (count >= 2) return false
+    seenIds.add(v.videoId)
+    if (nt) seenTitles.add(nt)
+    perChannel.set(ch, count + 1)
     picked.push(v)
+    return true
   }
 
   ranked.forEach(({ v }) => {
@@ -644,12 +725,19 @@ export function getRelated(videoId, limit = 20, hint = {}) {
   })
 
   // Same-category fill only (still on-topic) — never random dump
-  if (picked.length < Math.min(8, limit) && categoryHint) {
+  if (picked.length < Math.min(10, limit) && categoryHint) {
     pool
-      .filter((v) => v.category === categoryHint)
+      .filter((v) => v.category === categoryHint || (v.categories || []).includes(categoryHint))
       .forEach((v) => {
         if (picked.length < limit) push(v)
       })
+  }
+
+  // Broad unique fill so related never looks empty / repetitive
+  if (picked.length < Math.min(12, limit)) {
+    pool.forEach((v) => {
+      if (picked.length < limit) push(v)
+    })
   }
 
   return picked.slice(0, limit).map((v) => {
@@ -746,22 +834,42 @@ export function getSubscriptionsPreview() {
 
 /**
  * Channels this channel follows (for Featured channels shelf).
- * Deterministic subset so each channel page shows its own follow list.
+ * Seeded shuffle so each channel page gets a distinct, unique follow list.
  */
 export function getChannelSubscriptions(channelId, limit = 8) {
   const others = CHANNELS.filter((c) => c.id !== channelId)
   if (!others.length) return []
-  let hash = 0
+
+  let seed = 2166136261
   String(channelId || 'ch').split('').forEach((ch) => {
-    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
+    seed ^= ch.charCodeAt(0)
+    seed = Math.imul(seed, 16777619) >>> 0
   })
-  const start = hash % others.length
-  const ordered = [...others.slice(start), ...others.slice(0, start)]
-  return ordered.slice(0, Math.min(limit, ordered.length)).map((c) => ({
-    id: c.id,
-    title: c.title,
-    avatar: c.avatar,
-    handle: c.handle,
-    subscribers: c.subscribers,
-  }))
+  const rand = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+    return seed / 4294967296
+  }
+
+  const shuffled = [...others]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+
+  const take = Math.min(limit, shuffled.length)
+  const seen = new Set()
+  const out = []
+  for (const c of shuffled) {
+    if (!c?.id || seen.has(c.id)) continue
+    seen.add(c.id)
+    out.push({
+      id: c.id,
+      title: c.title,
+      avatar: c.avatar,
+      handle: c.handle,
+      subscribers: c.subscribers,
+    })
+    if (out.length >= take) break
+  }
+  return out
 }

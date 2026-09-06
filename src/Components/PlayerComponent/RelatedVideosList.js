@@ -19,13 +19,24 @@ const RelatedVideos = ({
 
   const videos = useMemo(() => {
     const list = randomVideosData?.items || []
-    const seen = new Set()
+    const seenIds = new Set()
+    const seenTitles = new Set()
+    const seenThumbs = new Set()
     return list.filter((item) => {
       const id = item?.id?.videoId || (typeof item?.id === 'string' ? item.id : null)
       if (!id || !item?.snippet) return false
       if (isShortSearchItem(item)) return false
-      if (seen.has(id)) return false
-      seen.add(id)
+      if (seenIds.has(id)) return false
+      const title = String(item.snippet.title || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+      if (title && seenTitles.has(title)) return false
+      const thumb = `https://i.ytimg.com/vi/${id}/mqdefault.jpg`
+      if (seenThumbs.has(thumb)) return false
+      seenIds.add(id)
+      if (title) seenTitles.add(title)
+      seenThumbs.add(thumb)
       return true
     })
   }, [randomVideosData])

@@ -10,10 +10,18 @@ const ChannelCrousel = ({ excludeChannelId, channels: channelsProp } = {}) => {
   const scrollRef = useRef(null)
   const [showLeftbtn, setShowLeftbtn] = useState(false)
   const [showRightbtn, setShowRightbtn] = useState(false)
-  const channels = (channelsProp?.length
-    ? channelsProp
-    : CHANNELS.filter((c) => c.id !== excludeChannelId).slice(0, 8)
-  ).filter((c) => c && c.id !== excludeChannelId)
+  const channels = (() => {
+    const raw = channelsProp?.length
+      ? channelsProp
+      : CHANNELS.filter((c) => c.id !== excludeChannelId).slice(0, 8)
+    const seen = new Set()
+    return raw.filter((c) => {
+      const id = c?.id || c?.channelId
+      if (!id || id === excludeChannelId || seen.has(id)) return false
+      seen.add(id)
+      return true
+    })
+  })()
 
   const updateButtonVisibility = () => {
     const el = scrollRef.current

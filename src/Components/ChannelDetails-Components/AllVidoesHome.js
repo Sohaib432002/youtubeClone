@@ -94,23 +94,33 @@ const AllVideosHome = () => {
     channelId,
   })
 
-  // Featured channels = channels this channel subscribed to
+  // Featured channels = channels this channel subscribed to (one unique row)
   const isOwnChannel = myChannel && (myChannel.id === channelId || myChannel.id === channelData?.id)
-  const featuredChannels = isOwnChannel
-    ? subscriptions.map((s) => ({
-        id: s.channelId,
-        title: s.title,
-        avatar: s.avatar,
-        handle: s.handle,
-        subscribers: s.subscriberCount,
-      }))
-    : getChannelSubscriptions(channelId || channelData?.id, 8)
+  const featuredChannels = (() => {
+    const raw = isOwnChannel
+      ? subscriptions.map((s) => ({
+          id: s.channelId,
+          title: s.title,
+          avatar: s.avatar,
+          handle: s.handle,
+          subscribers: s.subscriberCount,
+        }))
+      : getChannelSubscriptions(channelId || channelData?.id, 8)
+    const seen = new Set()
+    return raw.filter((c) => {
+      const id = c.id || c.channelId
+      if (!id || seen.has(id) || id === channelId || id === channelData?.id) return false
+      seen.add(id)
+      return true
+    })
+  })()
 
   if (!shelves.length) {
     return <p className="text-[#AAAAAA] py-8 text-center">No videos found for this channel.</p>
   }
 
   const tabBase = channelId ? `/channel/${channelId}` : '/CD'
+  let channelsShelfRendered = false
 
   return (
     <div className="text-white pb-8">
@@ -123,8 +133,10 @@ const AllVideosHome = () => {
           return <FeaturedVideo key={`featured-${idx}`} item={shelf.items[0]} logo={logo} />
         }
         if (shelf.type === 'channels') {
+          if (channelsShelfRendered) return null
+          channelsShelfRendered = true
           return (
-            <section key={`channels-${idx}`} className="py-5">
+            <section key="featured-channels" className="py-5">
               <h2 className="text-white text-lg font-bold mb-3">
                 {isOwnChannel ? 'Subscriptions' : 'Featured channels'}
               </h2>

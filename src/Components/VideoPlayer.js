@@ -47,15 +47,53 @@ function normalizeRelatedItem(it) {
 
 function mergeRelatedItems(incoming, prevItems, currentId, reset) {
   const live = (incoming || []).map(normalizeRelatedItem).filter(Boolean)
-  const seen = new Set(
-    reset ? [currentId] : [currentId, ...(prevItems || []).map((r) => r.id?.videoId)]
-  )
-  const extra = live.filter((r) => {
+  const seenIds = new Set(reset ? [currentId] : [currentId])
+  const seenTitles = new Set()
+  const seenThumbs = new Set()
+  const perChannel = new Map()
+
+  const normTitle = (t) =>
+    String(t || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+
+  const consider = (r) => {
     const vid = r.id?.videoId
-    if (!vid || seen.has(vid)) return false
-    seen.add(vid)
+    if (!vid || seenIds.has(vid)) return false
+    const title = normTitle(r.snippet?.title)
+    if (title && seenTitles.has(title)) return false
+    const thumb =
+      r.snippet?.thumbnails?.medium?.url ||
+      r.snippet?.thumbnails?.high?.url ||
+      `https://i.ytimg.com/vi/${vid}/mqdefault.jpg`
+    if (thumb && seenThumbs.has(thumb)) return false
+    const ch = r.snippet?.channelId || r.snippet?.channelTitle || '_'
+    const count = perChannel.get(ch) || 0
+    if (count >= 3) return false
+    seenIds.add(vid)
+    if (title) seenTitles.add(title)
+    if (thumb) seenThumbs.add(thumb)
+    perChannel.set(ch, count + 1)
     return true
-  })
+  }
+
+  if (!reset) {
+    ;(prevItems || []).forEach((r) => {
+      const vid = r.id?.videoId
+      if (vid) seenIds.add(vid)
+      const title = normTitle(r.snippet?.title)
+      if (title) seenTitles.add(title)
+      const thumb =
+        r.snippet?.thumbnails?.medium?.url ||
+        `https://i.ytimg.com/vi/${vid}/mqdefault.jpg`
+      if (thumb) seenThumbs.add(thumb)
+      const ch = r.snippet?.channelId || r.snippet?.channelTitle || '_'
+      perChannel.set(ch, (perChannel.get(ch) || 0) + 1)
+    })
+  }
+
+  const extra = live.filter(consider)
   return { items: reset ? extra : [...(prevItems || []), ...extra], added: extra.length }
 }
 
@@ -226,29 +264,26 @@ const VideoPlayer = () => {
         if (cancelled) return
 
         const live = [...relatedItems, ...(related?.items || [])]
+        const catalogRelated = getRelated(id, 28, {
+          title,
+          category: catalog?.category,
+          description,
+          channelId,
+        })
+        // Prefer unique catalog rows, then API — never leave a repeating rail
+        const combined = [...catalogRelated, ...live]
         let added = 0
         setRelatedData((prev) => {
-          const next = mergeRelatedItems(live, prev.items, id, true)
+          const next = mergeRelatedItems(combined, prev.items, id, true)
           added = next.added
           return { items: next.items }
         })
 
         relatedMetaRef.current.token = related?.nextPageToken || ''
         relatedMetaRef.current.stage = related?.stage || 0
-        setRelatedHasMore(Boolean(related?.hasMore))
+        setRelatedHasMore(Boolean(related?.hasMore) && added > 0)
 
-        if (!added && catalog) {
-          const local = getRelated(id, 24, {
-            title,
-            category: catalog.category,
-            description,
-            channelId,
-          })
-          setRelatedData((prev) => ({
-            items: mergeRelatedItems(local, prev.items, id, true).items,
-          }))
-          setRelatedHasMore(false)
-        } else if (!added) {
+        if (!added) {
           setRelatedError('No related videos found for this topic.')
         }
       } catch (_) {
@@ -301,13 +336,18 @@ const VideoPlayer = () => {
           stage: meta.stage,
         }
       )
-      setRelatedData((prev) => ({
-        items: mergeRelatedItems(more?.items || [], prev.items, id, false).items,
-      }))
+      const merged = mergeRelatedItems(
+        more?.items || [],
+        relatedItemsRef.current || [],
+        id,
+        false
+      )
+      setRelatedData({ items: merged.items })
       relatedMetaRef.current.token = more?.nextPageToken || ''
       relatedMetaRef.current.stage = more?.stage || meta.stage + 1
-      setRelatedHasMore(Boolean(more?.hasMore && (more.items || []).length))
-      if (!(more?.items || []).length) setRelatedHasMore(false)
+      setRelatedHasMore(
+        Boolean(more?.hasMore && (more.items || []).length && merged.added > 0)
+      )
     } catch (_) {
       setRelatedHasMore(false)
     } finally {
