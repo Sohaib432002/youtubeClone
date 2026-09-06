@@ -661,8 +661,8 @@ function scoreRelated(candidate, current, keywords) {
 }
 
 /**
- * Related videos: long-form only (no Shorts), ranked by category / channel / keywords.
- * Unique videoIds only; max 2 per channel so the rail does not look repeated.
+ * Related videos: only videos that truly match the current video's topic.
+ * Unique IDs, max 2 per channel — never pads with unrelated catalog filler.
  */
 export function getRelated(videoId, limit = 20, hint = {}) {
   const current = getCatalogVideo(videoId)
@@ -671,7 +671,7 @@ export function getRelated(videoId, limit = 20, hint = {}) {
   const channelHint = hint.channelId || current?.channelId || ''
   const exclude = new Set([videoId, ...(hint.excludeIds || [])].filter(Boolean))
   const keywords = extractKeywords(
-    `${titleHint} ${categoryHint} ${hint.description || current?.description || ''} ${(current?.tags || []).join(' ')}`
+    `${titleHint} ${hint.description || current?.description || ''} ${(current?.tags || []).join(' ')}`
   )
 
   const currentMeta = current || {
@@ -688,7 +688,8 @@ export function getRelated(videoId, limit = 20, hint = {}) {
       (v.durationSec || 120) >= 60
   )
 
-  const MIN_SCORE = categoryHint ? 35 : 18
+  // Strict: require real topical overlap with the playing video
+  const MIN_SCORE = keywords.length ? 28 : categoryHint ? 55 : 999
 
   const ranked = pool
     .map((v) => ({ v, score: scoreRelated(v, currentMeta, keywords) }))
@@ -724,20 +725,19 @@ export function getRelated(videoId, limit = 20, hint = {}) {
     if (picked.length < limit) push(v)
   })
 
-  // Same-category fill only (still on-topic) — never random dump
-  if (picked.length < Math.min(10, limit) && categoryHint) {
+  // Same category + at least one shared keyword only (still about this video)
+  if (picked.length < Math.min(8, limit) && categoryHint && keywords.length) {
     pool
-      .filter((v) => v.category === categoryHint || (v.categories || []).includes(categoryHint))
+      .filter((v) => {
+        const sameCat =
+          v.category === categoryHint || (v.categories || []).includes(categoryHint)
+        if (!sameCat) return false
+        const hay = `${v.title} ${v.description} ${(v.tags || []).join(' ')}`.toLowerCase()
+        return keywords.some((kw) => hay.includes(kw))
+      })
       .forEach((v) => {
         if (picked.length < limit) push(v)
       })
-  }
-
-  // Broad unique fill so related never looks empty / repetitive
-  if (picked.length < Math.min(12, limit)) {
-    pool.forEach((v) => {
-      if (picked.length < limit) push(v)
-    })
   }
 
   return picked.slice(0, limit).map((v) => {

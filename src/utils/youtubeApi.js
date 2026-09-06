@@ -492,9 +492,31 @@ function relatedKeywordQuery(title = '') {
     .join(' ')
 }
 
+function scoreApiRelated(item, topicTitle = '', keywords = []) {
+  const title = String(item?.snippet?.title || '').toLowerCase()
+  const desc = String(item?.snippet?.description || '').toLowerCase()
+  const hay = `${title} ${desc}`
+  let score = 0
+  const topicTokens = String(topicTitle || '')
+    .toLowerCase()
+    .split(/[^a-z0-9+]+/)
+    .filter((w) => w.length > 2)
+    .slice(0, 8)
+  topicTokens.forEach((tok) => {
+    if (title.includes(tok)) score += 12
+    else if (hay.includes(tok)) score += 4
+  })
+  keywords.forEach((kw) => {
+    if (title.includes(kw)) score += 10
+    else if (hay.includes(kw)) score += 3
+  })
+  if (item?.snippet?.channelId) score += 1
+  return score
+}
+
 /**
  * Related videos for the watch page: search by the current video's title,
- * never a generic home dump. Supports infinite paging via pageToken + stage.
+ * keep only items that actually overlap with that topic.
  */
 export async function getRelatedVideos(
   { videoId = '', title = '', channelId = '', description = '' } = {},
@@ -505,7 +527,9 @@ export async function getRelatedVideos(
   const exclude = new Set([videoId, ...excludeIds].filter(Boolean))
   const topic = String(title || '').trim()
   const keys = relatedKeywordQuery(`${topic} ${description || ''}`)
+  const keyList = keys.split(/\s+/).filter(Boolean)
   const shortTopic = topic.split(/\s+/).slice(0, 4).join(' ')
+  const MIN_REL = topic ? 12 : 0
 
   const take = (list) =>
     dedupeByVideoId(list)
@@ -513,8 +537,13 @@ export async function getRelatedVideos(
         const id = videoIdOf(it)
         if (!id || exclude.has(id)) return false
         if (isShortLikeItem(it)) return false
+        if (MIN_REL && scoreApiRelated(it, topic, keyList) < MIN_REL) return false
         return true
       })
+      .sort(
+        (a, b) =>
+          scoreApiRelated(b, topic, keyList) - scoreApiRelated(a, topic, keyList)
+      )
       .slice(0, maxResults)
 
   const stages = []
@@ -522,12 +551,10 @@ export async function getRelatedVideos(
   if (keys && keys !== topic.toLowerCase()) {
     stages.push({ type: 'search', q: keys, order: 'relevance' })
   }
-  if (topic) stages.push({ type: 'search', q: topic, order: 'date' })
-  if (shortTopic && shortTopic !== topic) {
-    stages.push({ type: 'search', q: shortTopic, order: 'viewCount' })
-  }
   if (channelId) stages.push({ type: 'channel', channelId })
-  if (topic) stages.push({ type: 'search', q: `${shortTopic || topic} video`, order: 'relevance' })
+  if (shortTopic && shortTopic !== topic) {
+    stages.push({ type: 'search', q: shortTopic, order: 'relevance' })
+  }
 
   if (!stages.length) {
     return { ...emptySearch(), stage: 0, hasMore: false }

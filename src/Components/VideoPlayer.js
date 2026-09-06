@@ -264,14 +264,15 @@ const VideoPlayer = () => {
         if (cancelled) return
 
         const live = [...relatedItems, ...(related?.items || [])]
-        const catalogRelated = getRelated(id, 28, {
+        // API first (matches the playing video's title/topic), then strict catalog fill
+        const catalogRelated = getRelated(id, 20, {
           title,
           category: catalog?.category,
           description,
           channelId,
+          excludeIds: live.map((it) => videoIdOf(it)).filter(Boolean),
         })
-        // Prefer unique catalog rows, then API — never leave a repeating rail
-        const combined = [...catalogRelated, ...live]
+        const combined = [...live, ...catalogRelated]
         let added = 0
         setRelatedData((prev) => {
           const next = mergeRelatedItems(combined, prev.items, id, true)
