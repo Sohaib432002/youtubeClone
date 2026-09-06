@@ -87,17 +87,27 @@ function isValidYoutubePayload(data) {
 }
 
 async function fetchWithYoutubeKeys(buildUrl) {
+  let lastReason = ''
   for (const key of YT_API_KEYS) {
     try {
       const { res, data } = await fetchJson(buildUrl(key))
       if (res.ok && isValidYoutubePayload(data)) {
         return data
       }
+      const reason =
+        data?.error?.errors?.[0]?.reason ||
+        data?.error?.message ||
+        (res ? `http_${res.status}` : 'request_failed')
+      lastReason = String(reason)
     } catch (_) {
-      /* try next key / timeout */
+      lastReason = 'network_error'
     }
   }
-  return null
+  return { __ytFailed: true, reason: lastReason || 'no_keys' }
+}
+
+function ytOk(payload) {
+  return payload && !payload.__ytFailed && Array.isArray(payload.items)
 }
 
 function mapDjangoVideoToSearchItem(v) {
@@ -260,17 +270,16 @@ export async function searchVideos(
       eventType,
     })
   )
-  if (yt) {
+  if (ytOk(yt)) {
     let items = dedupeByVideoId(yt.items || [])
     if (channelId) {
-      items = items.filter(
-        (it) => !it.snippet?.channelId || it.snippet.channelId === channelId
-      )
+      items = items.filter((it) => it.snippet?.channelId === channelId)
     }
     return {
       kind: 'youtube#searchListResponse',
       items,
       nextPageToken: yt.nextPageToken || undefined,
+      source: 'youtube',
     }
   }
 
@@ -283,11 +292,15 @@ export async function searchVideos(
         kind: 'youtube#searchListResponse',
         items: dedupeByVideoId(list.map(mapDjangoVideoToSearchItem)),
         nextPageToken: undefined,
+        source: 'django',
       }
     }
   }
 
-  return emptySearch()
+  return emptySearch({
+    source: 'none',
+    apiError: yt?.reason || 'unavailable',
+  })
 }
 
 export async function searchShorts(
@@ -339,33 +352,12 @@ export async function getHomeVideos(
   }
 
   if (cat === 'All' || cat === 'Trending') {
-    if (pageToken) {
-      const popular = await getMostPopular(maxResults, { pageToken, regionCode })
-      const mapped = mapPopular(popular)
-      if (mapped) return mapped
-    } else {
-      const [popular, recent] = await Promise.all([
-        getMostPopular(maxResults, { regionCode }),
-        searchVideos('trending this week', Math.max(8, Math.ceil(maxResults / 3)), {
-          order: 'date',
-        }),
-      ])
-      let mapped = mapPopular(popular)
-      if (!mapped && regionCode && regionCode !== 'US') {
-        mapped = mapPopular(await getMostPopular(maxResults, { regionCode: 'US' }))
-      }
-      const items = dedupeByVideoId([
-        ...(mapped?.items || []),
-        ...(recent?.items || []),
-      ])
-      if (items.length) {
-        return {
-          kind: 'youtube#searchListResponse',
-          items,
-          nextPageToken: mapped?.nextPageToken || undefined,
-        }
-      }
+    const popular = await getMostPopular(maxResults, { pageToken, regionCode })
+    let mapped = mapPopular(popular)
+    if (!mapped && regionCode && regionCode !== 'US') {
+      mapped = mapPopular(await getMostPopular(maxResults, { pageToken, regionCode: 'US' }))
     }
+    if (mapped) return mapped
   } else if (cat === 'Live') {
     const live = await searchVideos('live', maxResults, {
       pageToken,
@@ -440,7 +432,9 @@ export async function getChannelVideos(
       )}&key=${key}`
   )
   const uploadsId =
-    channelPayload?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads || ''
+    (ytOk(channelPayload) &&
+      channelPayload.items?.[0]?.contentDetails?.relatedPlaylists?.uploads) ||
+    ''
 
   if (uploadsId) {
     const tokenPart = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''
@@ -450,12 +444,12 @@ export async function getChannelVideos(
           uploadsId
         )}&maxResults=${clampMax(maxResults)}${tokenPart}&key=${key}`
     )
-    if (pl?.items?.length) {
+    if (ytOk(pl) && pl.items?.length) {
       const items = dedupeByVideoId(
         pl.items
           .map(mapPlaylistItemToSearchItem)
           .filter(Boolean)
-          .filter((it) => !it.snippet?.channelId || it.snippet.channelId === channelId)
+          .filter((it) => it.snippet?.channelId === channelId)
       )
       if (items.length) {
         return {
@@ -475,21 +469,27 @@ export async function getChannelVideos(
   })
   return {
     kind: 'youtube#searchListResponse',
-    items: (searched.items || []).filter(
-      (it) => !it.snippet?.channelId || it.snippet.channelId === channelId
-    ),
+    items: (searched.items || []).filter((it) => it.snippet?.channelId === channelId),
     nextPageToken: searched.nextPageToken,
   }
 }
 
+function tokenizeRelated(text = '') {
+  const raw = String(text || '').toLowerCase()
+  let parts = []
+  try {
+    parts = raw.match(/[\p{L}\p{N}]{2,}/gu) || []
+  } catch (_) {
+    parts = raw
+      .replace(/[^a-z0-9\u00c0-\u024f\s]+/gi, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 1)
+  }
+  return parts.slice(0, 10)
+}
+
 function relatedKeywordQuery(title = '') {
-  return String(title)
-    .toLowerCase()
-    .replace(/[^a-z0-9\s+]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length > 2)
-    .slice(0, 6)
-    .join(' ')
+  return tokenizeRelated(title).slice(0, 6).join(' ')
 }
 
 function scoreApiRelated(item, topicTitle = '', keywords = []) {
@@ -497,16 +497,13 @@ function scoreApiRelated(item, topicTitle = '', keywords = []) {
   const desc = String(item?.snippet?.description || '').toLowerCase()
   const hay = `${title} ${desc}`
   let score = 0
-  const topicTokens = String(topicTitle || '')
-    .toLowerCase()
-    .split(/[^a-z0-9+]+/)
-    .filter((w) => w.length > 2)
-    .slice(0, 8)
+  const topicTokens = tokenizeRelated(topicTitle)
   topicTokens.forEach((tok) => {
     if (title.includes(tok)) score += 12
     else if (hay.includes(tok)) score += 4
   })
   keywords.forEach((kw) => {
+    if (!kw) return
     if (title.includes(kw)) score += 10
     else if (hay.includes(kw)) score += 3
   })
@@ -515,8 +512,8 @@ function scoreApiRelated(item, topicTitle = '', keywords = []) {
 }
 
 /**
- * Related videos for the watch page: search by the current video's title,
- * keep only items that actually overlap with that topic.
+ * Related videos for the watch page: search by the current video's title.
+ * Prefer scored overlap; if scoring empties a YouTube relevance page, keep that page.
  */
 export async function getRelatedVideos(
   { videoId = '', title = '', channelId = '', description = '' } = {},
@@ -529,22 +526,29 @@ export async function getRelatedVideos(
   const keys = relatedKeywordQuery(`${topic} ${description || ''}`)
   const keyList = keys.split(/\s+/).filter(Boolean)
   const shortTopic = topic.split(/\s+/).slice(0, 4).join(' ')
-  const MIN_REL = topic ? 12 : 0
+  const MIN_REL = keyList.length ? 8 : 0
 
-  const take = (list) =>
-    dedupeByVideoId(list)
-      .filter((it) => {
-        const id = videoIdOf(it)
-        if (!id || exclude.has(id)) return false
-        if (isShortLikeItem(it)) return false
-        if (MIN_REL && scoreApiRelated(it, topic, keyList) < MIN_REL) return false
-        return true
-      })
-      .sort(
-        (a, b) =>
-          scoreApiRelated(b, topic, keyList) - scoreApiRelated(a, topic, keyList)
-      )
-      .slice(0, maxResults)
+  const baseFilter = (list) =>
+    dedupeByVideoId(list).filter((it) => {
+      const id = videoIdOf(it)
+      if (!id || exclude.has(id)) return false
+      if (isShortLikeItem(it)) return false
+      return true
+    })
+
+  const take = (list) => {
+    const base = baseFilter(list)
+    if (!base.length) return []
+    if (!MIN_REL) return base.slice(0, maxResults)
+    const scored = base
+      .map((it) => ({ it, score: scoreApiRelated(it, topic, keyList) }))
+      .filter(({ score }) => score >= MIN_REL)
+      .sort((a, b) => b.score - a.score)
+      .map(({ it }) => it)
+    // Title search already asked YouTube for this topic — don't wipe the page
+    if (!scored.length) return base.slice(0, maxResults)
+    return scored.slice(0, maxResults)
+  }
 
   const stages = []
   if (topic) stages.push({ type: 'search', q: topic, order: 'relevance' })
@@ -617,13 +621,14 @@ export async function getChannelLogoMap(channelIds = []) {
 
 /** Video details (YouTube videos.list shape) */
 export async function getVideoDetails(id) {
+  const safeId = encodeURIComponent(String(id || ''))
   const yt = await fetchWithYoutubeKeys(
     (key) =>
-      `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${id}&key=${key}`
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${safeId}&key=${key}`
   )
-  if (yt && yt.items?.length) return yt
+  if (ytOk(yt) && yt.items?.length) return yt
 
-  const django = await fetchDjango(`/videos/${id}/`)
+  const django = await fetchDjango(`/videos/${safeId}/`)
   if (django && django.video_id) {
     return {
       kind: 'youtube#videoListResponse',
@@ -636,13 +641,14 @@ export async function getVideoDetails(id) {
 
 /** Comments (YouTube commentThreads shape) */
 export async function getVideoComments(id, maxResults = 50) {
+  const safeId = encodeURIComponent(String(id || ''))
   const yt = await fetchWithYoutubeKeys(
     (key) =>
-      `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${id}&maxResults=${maxResults}&key=${key}`
+      `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${safeId}&maxResults=${maxResults}&key=${key}`
   )
-  if (yt) return yt
+  if (ytOk(yt)) return yt
 
-  const django = await fetchDjango(`/videos/${id}/comments/`)
+  const django = await fetchDjango(`/videos/${safeId}/comments/`)
   if (django && Array.isArray(django.results || django)) {
     const list = django.results || django
     return {
@@ -657,24 +663,24 @@ export async function getVideoComments(id, maxResults = 50) {
 /** Batch video stats (YouTube videos.list) */
 export async function getVideosByIds(ids) {
   if (!ids?.length) return { items: [] }
-  const idParam = ids.filter(Boolean).join(',')
+  const idParam = ids.filter(Boolean).map(encodeURIComponent).join(',')
   const yt = await fetchWithYoutubeKeys(
     (key) =>
       `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${idParam}&key=${key}`
   )
-  if (yt) return yt
+  if (ytOk(yt)) return yt
   return { items: [] }
 }
 
 /** Batch channels (YouTube channels.list) */
 export async function getChannelsByIds(ids) {
   if (!ids?.length) return { items: [] }
-  const idParam = ids.filter(Boolean).join(',')
+  const idParam = ids.filter(Boolean).map(encodeURIComponent).join(',')
   const yt = await fetchWithYoutubeKeys(
     (key) =>
       `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings&id=${idParam}&key=${key}`
   )
-  if (yt) return yt
+  if (ytOk(yt)) return yt
   return { items: [] }
 }
 
@@ -691,12 +697,12 @@ export async function getMostPopular(
         maxResults
       )}${tokenPart}${catPart}&key=${key}`
   )
-  if (yt) return yt
+  if (ytOk(yt)) return yt
 
   if (!pageToken && !videoCategoryId) {
     const django = await fetchDjango('/videos/')
     if (django && Array.isArray(django.results || django)) {
-      const list = django.results || django
+      const list = (django.results || django).slice(0, clampMax(maxResults))
       return {
         kind: 'youtube#videoListResponse',
         items: list.map(mapDjangoVideoToDetail),
@@ -731,7 +737,7 @@ export async function getChannelPlaylists(channelId, maxResults = 24) {
         channelId
       )}&maxResults=${clampMax(maxResults)}&key=${key}`
   )
-  if (yt?.items?.length) {
+  if (ytOk(yt) && yt.items?.length) {
     return { kind: 'youtube#playlistListResponse', items: yt.items }
   }
 
@@ -759,7 +765,7 @@ export async function getPlaylistVideos(playlistId, maxResults = 32) {
         playlistId
       )}&maxResults=${clampMax(maxResults)}&key=${key}`
   )
-  if (pl?.items?.length) {
+  if (ytOk(pl) && pl.items?.length) {
     return {
       kind: 'youtube#searchListResponse',
       items: dedupeByVideoId(pl.items.map(mapPlaylistItemToSearchItem).filter(Boolean)),
@@ -786,9 +792,7 @@ export async function getChannelShorts(channelId, maxResults = 24) {
     type: 'video',
   })
   let items = await keepOnlyShorts(
-    (searched.items || []).filter(
-      (it) => !it.snippet?.channelId || it.snippet.channelId === channelId
-    ),
+    (searched.items || []).filter((it) => it.snippet?.channelId === channelId),
     [],
     { lenient: true }
   )
@@ -803,9 +807,7 @@ export async function getChannelShorts(channelId, maxResults = 24) {
     type: 'video',
   })
   items = await keepOnlyShorts(
-    (fallback.items || []).filter(
-      (it) => !it.snippet?.channelId || it.snippet.channelId === channelId
-    ),
+    (fallback.items || []).filter((it) => it.snippet?.channelId === channelId),
     [],
     { lenient: false }
   )
@@ -827,7 +829,7 @@ export async function getChannelLiveVideos(channelId, maxResults = 16) {
 
   const tag = (payload, status) =>
     (payload?.items || [])
-      .filter((it) => !it.snippet?.channelId || it.snippet.channelId === channelId)
+      .filter((it) => it.snippet?.channelId === channelId)
       .map((it) => ({
         ...it,
         liveStatus: it.snippet?.liveBroadcastContent || status,
@@ -866,5 +868,5 @@ export async function getChannelSections(channelId) {
         channelId
       )}&key=${key}`
   )
-  return { items: yt?.items || [] }
+  return { items: ytOk(yt) ? yt.items || [] : [] }
 }

@@ -63,12 +63,17 @@ const Result = () => {
 
       let list = []
       let liveFailed = false
+      let apiError = ''
       try {
         const live = await searchVideos(query, 24, { order: 'relevance' })
         if (cancelled || queryRef.current !== query) return
         list = dedupeByVideoId(live?.items || []).filter((it) => !isShortLikeItem(it))
         tokenRef.current = live?.nextPageToken || ''
         setNextPageToken(tokenRef.current)
+        if (!list.length && (live?.apiError || live?.source === 'none')) {
+          liveFailed = true
+          apiError = live?.apiError || ''
+        }
       } catch (_) {
         liveFailed = true
       }
@@ -79,7 +84,11 @@ const Result = () => {
         if (list.length) {
           if (!cancelled) setUsedFallback(true)
         } else if (liveFailed && !cancelled) {
-          setError('Search could not reach YouTube. Try again in a moment.')
+          setError(
+            apiError === 'quotaExceeded'
+              ? 'YouTube search quota is used up. Try again later.'
+              : 'Search could not reach YouTube. Try again in a moment.'
+          )
         }
         tokenRef.current = ''
         setNextPageToken('')
